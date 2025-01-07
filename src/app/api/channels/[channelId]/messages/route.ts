@@ -1,13 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "~/server/db";
 import { auth } from "@clerk/nextjs";
 
 export async function GET(
-  req: Request,
+  req: NextRequest,
   { params }: { params: { channelId: string } }
 ) {
   try {
-    const { userId } = auth();
+    const session = await auth();
+    const userId = session?.userId;
+
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
@@ -76,11 +78,13 @@ export async function GET(
 }
 
 export async function POST(
-  req: Request,
+  req: NextRequest,
   { params }: { params: { channelId: string } }
 ) {
   try {
-    const { userId } = auth();
+    const session = await auth();
+    const userId = session?.userId;
+
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }

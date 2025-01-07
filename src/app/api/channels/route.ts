@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs";
 
 export async function GET() {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
@@ -31,7 +31,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
@@ -41,6 +41,16 @@ export async function POST(req: Request) {
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
     }
+
+    // Ensure user exists in database
+    await db.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: {
+        id: userId,
+        username: userId, // We'll update this with actual username later
+      },
+    });
 
     // Create channel and add creator as member
     const channel = await db.channel.create({
@@ -55,6 +65,11 @@ export async function POST(req: Request) {
       },
       include: {
         members: true,
+        _count: {
+          select: {
+            members: true,
+          },
+        },
       },
     });
 
