@@ -1,20 +1,98 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+model User {
+    id                    String              @id
+    username              String              @unique
+    profileImageUrl       String?
+    status               UserStatus          @default(Offline)
+    lastSeen             DateTime?
+    channels             ChannelMembership[]
+    directMessagesSent   DirectMessage[]     @relation("Sender")
+    directMessagesReceived DirectMessage[]   @relation("Receiver")
+    messages             Message[]
+    reactions            Reaction[]
+}
 
-    @@index([name])
+enum UserStatus {
+    Online
+    Offline
+}
+
+model Channel {
+    id          Int                 @id @default(autoincrement())
+    name        String              @unique
+    description String?
+    isPublic    Boolean             @default(true)
+    createdAt   DateTime            @default(now())
+    members     ChannelMembership[]
+    messages    Message[]
+}
+
+model ChannelMembership {
+    user      User     @relation(fields: [userId], references: [id])
+    userId    String
+    channel   Channel  @relation(fields: [channelId], references: [id])
+    channelId Int
+    joinedAt  DateTime @default(now())
+
+    @@id([userId, channelId])
+}
+
+model Message {
+    id              Int        @id @default(autoincrement())
+    content         String
+    user            User       @relation(fields: [userId], references: [id])
+    userId          String
+    channel         Channel    @relation(fields: [channelId], references: [id])
+    channelId       Int
+    createdAt       DateTime   @default(now())
+    parentMessage   Message?   @relation("ThreadReplies", fields: [parentMessageId], references: [id])
+    parentMessageId Int?
+    replies         Message[]  @relation("ThreadReplies")
+    reactions       Reaction[]
+    files           File[]
+}
+
+model DirectMessage {
+    id              Int        @id @default(autoincrement())
+    content         String
+    sender          User       @relation("Sender", fields: [senderId], references: [id])
+    senderId        String
+    receiver        User       @relation("Receiver", fields: [receiverId], references: [id])
+    receiverId      String
+    conversationId  String?
+    createdAt       DateTime   @default(now())
+    reactions       Reaction[]
+    files           File[]
+}
+
+model Reaction {
+    id              Int            @id @default(autoincrement())
+    emoji           String
+    user            User           @relation(fields: [userId], references: [id])
+    userId          String
+    message         Message?       @relation(fields: [messageId], references: [id])
+    messageId       Int?
+    directMessage   DirectMessage? @relation(fields: [directMessageId], references: [id])
+    directMessageId Int?
+}
+
+model File {
+    id              Int            @id @default(autoincrement())
+    url             String
+    filename        String
+    filetype        String
+    message         Message?       @relation(fields: [messageId], references: [id])
+    messageId       Int?
+    directMessage   DirectMessage? @relation(fields: [directMessageId], references: [id])
+    directMessageId Int?
 }
