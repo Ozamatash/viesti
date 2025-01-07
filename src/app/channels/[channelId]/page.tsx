@@ -1,25 +1,24 @@
-import { auth } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { db } from "~/server/db";
 import { ChannelList } from "~/components/channel/ChannelList";
 import { MessageList } from "~/components/message/MessageList";
 import { MessageInput } from "~/components/message/MessageInput";
 
-interface Props {
-  params: {
-    channelId: string;
-  };
-}
+type Props = {
+  params: Promise<{ channelId: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
 
-export default async function ChannelPage({ params }: Props) {
-  const session = auth();
-  const userId = session?.userId;
+export default async function ChannelPage(props: Props) {
+  const { userId } = await auth();
+  const params = await props.params;
 
   if (!userId) {
     redirect("/sign-in");
   }
 
-  const channelId = parseInt(params.channelId);
+  const channelId = Number(params.channelId);
   if (isNaN(channelId)) {
     redirect("/channels");
   }

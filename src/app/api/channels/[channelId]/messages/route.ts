@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "~/server/db";
-import { auth } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
+
+type Context = {
+  params: Promise<{ channelId: string }>;
+};
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { channelId: string } }
+  request: NextRequest,
+  context: Context
 ) {
   try {
-    const session = await auth();
-    const userId = session?.userId;
-
+    const { userId } = await auth();
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const channelId = parseInt(params.channelId);
+    const { channelId: channelIdStr } = await context.params;
+    const channelId = Number(channelIdStr);
     if (isNaN(channelId)) {
       return new NextResponse("Invalid channel ID", { status: 400 });
     }
@@ -72,29 +75,28 @@ export async function GET(
 
     return NextResponse.json(messages);
   } catch (error) {
-    console.error("[CHANNEL_MESSAGES_GET]", error);
+    console.error("[MESSAGES_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
 
 export async function POST(
-  req: NextRequest,
-  { params }: { params: { channelId: string } }
+  request: NextRequest,
+  context: Context
 ) {
   try {
-    const session = await auth();
-    const userId = session?.userId;
-
+    const { userId } = await auth();
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const channelId = parseInt(params.channelId);
+    const { channelId: channelIdStr } = await context.params;
+    const channelId = Number(channelIdStr);
     if (isNaN(channelId)) {
       return new NextResponse("Invalid channel ID", { status: 400 });
     }
 
-    const { content, fileUrls } = await req.json();
+    const { content, fileUrls } = await request.json();
 
     if (!content && (!fileUrls || fileUrls.length === 0)) {
       return new NextResponse("Message content or files required", {
@@ -146,7 +148,7 @@ export async function POST(
 
     return NextResponse.json(message);
   } catch (error) {
-    console.error("[CHANNEL_MESSAGES_POST]", error);
+    console.error("[MESSAGES_POST]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 } 

@@ -1,14 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "~/server/db";
-import { auth } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
+
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    // Get all public channels and channels where user is a member
     const channels = await db.channel.findMany({
       where: {
         isPublic: true,
@@ -29,45 +31,29 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
+
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { name, description } = await req.json();
+    const { name, description, isPublic = true } = await req.json();
 
     if (!name) {
       return new NextResponse("Name is required", { status: 400 });
     }
-
-    // Ensure user exists in database
-    await db.user.upsert({
-      where: { id: userId },
-      update: {},
-      create: {
-        id: userId,
-        username: userId, // We'll update this with actual username later
-      },
-    });
 
     // Create channel and add creator as member
     const channel = await db.channel.create({
       data: {
         name,
         description,
+        isPublic,
         members: {
           create: {
             userId,
-          },
-        },
-      },
-      include: {
-        members: true,
-        _count: {
-          select: {
-            members: true,
           },
         },
       },
