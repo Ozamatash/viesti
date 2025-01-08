@@ -1,10 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { env } from "~/env";
 
-// Create a single supabase client for interacting with your database
-export const supabase = createClient(
+// Client-side Supabase instance (uses public anon key)
+export const supabaseClient = createClient(
   env.NEXT_PUBLIC_SUPABASE_URL,
-  env.SUPABASE_SERVICE_ROLE_KEY,
+  env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   {
     auth: {
       persistSession: false,
@@ -14,6 +14,7 @@ export const supabase = createClient(
 
 export const BUCKET_NAME = "message-attachments";
 
+// Client-side file upload
 export async function uploadFile(file: File, userId: string) {
   try {
     const fileExt = file.name.split(".").pop();
@@ -22,7 +23,7 @@ export async function uploadFile(file: File, userId: string) {
     // Convert File to Buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const { data, error } = await supabase.storage
+    const { data, error } = await supabaseClient.storage
       .from(BUCKET_NAME)
       .upload(fileName, buffer, {
         contentType: file.type,
@@ -34,7 +35,7 @@ export async function uploadFile(file: File, userId: string) {
     }
 
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = supabaseClient.storage
       .from(BUCKET_NAME)
       .getPublicUrl(data.path);
 
@@ -45,21 +46,6 @@ export async function uploadFile(file: File, userId: string) {
     };
   } catch (error) {
     console.error("Error uploading file:", error);
-    throw error;
-  }
-}
-
-export async function deleteFile(filePath: string) {
-  try {
-    const { error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .remove([filePath]);
-
-    if (error) {
-      throw error;
-    }
-  } catch (error) {
-    console.error("Error deleting file:", error);
     throw error;
   }
 } 

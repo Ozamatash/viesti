@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { uploadFile } from "~/lib/supabase";
+import { uploadFile } from "~/lib/supabase-client";
 
 export async function POST(req: Request) {
   try {

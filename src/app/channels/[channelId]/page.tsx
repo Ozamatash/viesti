@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { ChannelList } from "~/components/channel/ChannelList";
 import { MessageList } from "~/components/message/MessageList";
 import { MessageInput } from "~/components/message/MessageInput";
+import { UserList } from "~/components/users/UserList";
 
 type Props = {
   params: Promise<{ channelId: string }>;
@@ -36,7 +37,7 @@ export default async function ChannelPage(props: Props) {
   }
 
   // Check if user is a member
-  const isMember = channel.members.some((member) => member.userId === userId);
+  const isMember = channel.members.some((member: { userId: string }) => member.userId === userId);
 
   if (!isMember && !channel.isPublic) {
     redirect("/channels");
@@ -46,7 +47,10 @@ export default async function ChannelPage(props: Props) {
     <div className="flex h-screen">
       {/* Sidebar */}
       <div className="w-64 bg-gray-800 text-white p-4">
-        <h2 className="text-xl font-bold mb-4">Channels</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">Channels</h2>
+          <UserList />
+        </div>
         <ChannelList />
       </div>
 

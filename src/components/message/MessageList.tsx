@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { useSocket } from "~/hooks/useSocket";
 import { MessageInput } from "./MessageInput";
 
 interface Message {
@@ -40,6 +41,7 @@ export function MessageList({ channelId }: MessageListProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const socket = useSocket();
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -56,10 +58,47 @@ export function MessageList({ channelId }: MessageListProps) {
     }
   }, [channelId]);
 
+  // Initial fetch
   useEffect(() => {
     setIsLoading(true);
     fetchMessages();
   }, [fetchMessages]);
+
+  // Socket.IO setup
+  useEffect(() => {
+    if (!socket) {
+      console.log('No socket connection');
+      return;
+    }
+
+    console.log('Setting up socket listeners for channel:', channelId);
+
+    // Join channel room
+    socket.emit('join-channel', channelId.toString());
+    console.log('Joined channel:', channelId);
+
+    // Listen for new messages
+    const handleNewMessage = (message: Message) => {
+      console.log('Received new message:', message);
+      setMessages(prev => {
+        // Check if message already exists
+        if (prev.some(m => m.id === message.id)) {
+          return prev;
+        }
+        // Add new message at the beginning
+        return [message, ...prev];
+      });
+    };
+
+    socket.on('new-message', handleNewMessage);
+
+    // Cleanup
+    return () => {
+      console.log('Cleaning up socket listeners for channel:', channelId);
+      socket.emit('leave-channel', channelId.toString());
+      socket.off('new-message', handleNewMessage);
+    };
+  }, [socket, channelId]);
 
   if (isLoading) {
     return (

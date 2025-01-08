@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "~/server/db";
 import { auth } from "@clerk/nextjs/server";
+import { emitNewMessage } from "~/server/socket";
 
 type Context = {
   params: Promise<{ channelId: string }>;
@@ -22,18 +23,23 @@ export async function GET(
       return new NextResponse("Invalid channel ID", { status: 400 });
     }
 
-    // Check if user is member of channel
-    const membership = await db.channelMembership.findUnique({
-      where: {
-        userId_channelId: {
-          userId,
-          channelId,
+    // Check if channel is public or user is a member
+    const channel = await db.channel.findUnique({
+      where: { id: channelId },
+      include: {
+        members: {
+          where: { userId },
         },
       },
     });
 
-    if (!membership) {
-      return new NextResponse("Not a member of this channel", { status: 403 });
+    if (!channel) {
+      return new NextResponse("Channel not found", { status: 404 });
+    }
+
+    // Only allow access if channel is public or user is a member
+    if (!channel.isPublic && channel.members.length === 0) {
+      return new NextResponse("Not authorized to view this channel", { status: 403 });
     }
 
     // Get messages with user info and reactions
@@ -104,18 +110,33 @@ export async function POST(
       });
     }
 
-    // Check if user is member of channel
-    const membership = await db.channelMembership.findUnique({
-      where: {
-        userId_channelId: {
-          userId,
-          channelId,
+    // Check if channel is public or user is a member
+    const channel = await db.channel.findUnique({
+      where: { id: channelId },
+      include: {
+        members: {
+          where: { userId },
         },
       },
     });
 
-    if (!membership) {
-      return new NextResponse("Not a member of this channel", { status: 403 });
+    if (!channel) {
+      return new NextResponse("Channel not found", { status: 404 });
+    }
+
+    // Only allow posting if channel is public or user is a member
+    if (!channel.isPublic && channel.members.length === 0) {
+      return new NextResponse("Not authorized to post in this channel", { status: 403 });
+    }
+
+    // If user is not a member and channel is public, add them as a member
+    if (channel.members.length === 0) {
+      await db.channelMembership.create({
+        data: {
+          userId,
+          channelId,
+        },
+      });
     }
 
     // Create message with optional files
@@ -143,8 +164,30 @@ export async function POST(
           },
         },
         files: true,
+        reactions: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            replies: true,
+          },
+        },
       },
     });
+
+    // Emit the new message event
+    try {
+      emitNewMessage(channelId, message);
+    } catch (error) {
+      console.error('[MESSAGES_POST] Error emitting message:', error);
+    }
 
     return NextResponse.json(message);
   } catch (error) {

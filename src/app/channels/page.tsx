@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { ChannelList } from "~/components/channel/ChannelList";
+import { UserList } from "~/components/users/UserList";
 
 export default async function ChannelsPage() {
   const { userId } = await auth();
@@ -13,7 +14,10 @@ export default async function ChannelsPage() {
     <div className="flex h-screen">
       {/* Sidebar */}
       <div className="w-64 bg-gray-800 text-white p-4">
-        <h2 className="text-xl font-bold mb-4">Channels</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold">Channels</h2>
+          <UserList />
+        </div>
         <ChannelList />
       </div>
 

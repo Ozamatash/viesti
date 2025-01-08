@@ -57,6 +57,13 @@ export async function POST(req: NextRequest) {
           },
         },
       },
+      include: {
+        _count: {
+          select: {
+            members: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json(channel);

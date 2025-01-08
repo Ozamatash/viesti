@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, FormEvent, ChangeEvent } from "react";
+import { uploadFile } from "~/lib/supabase-client";
+import { useUser } from "@clerk/nextjs";
 
 interface MessageInputProps {
   channelId: number;
@@ -10,38 +12,33 @@ interface MessageInputProps {
 export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
   const [content, setContent] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useUser();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!content.trim() && files.length === 0) return;
-    setIsLoading(true);
-    setError(null);
+    if ((!content.trim() && files.length === 0) || !user) return;
+    if (isSending || isUploading) return;
 
     try {
-      // Upload files first if any
-      const fileUrls = await Promise.all(
-        files.map(async (file) => {
-          const formData = new FormData();
-          formData.append("file", file);
+      setIsSending(true);
+      const fileUrls: string[] = [];
 
-          const res = await fetch("/api/files/upload", {
-            method: "POST",
-            body: formData,
-          });
+      // Upload files if any
+      if (files.length > 0) {
+        setIsUploading(true);
+        await Promise.all(
+          files.map(async (file) => {
+            const result = await uploadFile(file, user.id);
+            fileUrls.push(result.url);
+          })
+        );
+        setIsUploading(false);
+      }
 
-          if (!res.ok) {
-            throw new Error(`Failed to upload file: ${file.name}`);
-          }
-
-          const data = await res.json();
-          return data.url;
-        })
-      );
-
-      // Send message with file URLs
+      // Send message
       const res = await fetch(`/api/channels/${channelId}/messages`, {
         method: "POST",
         headers: {
@@ -53,54 +50,32 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
         }),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to send message");
-      }
+      if (!res.ok) throw new Error("Failed to send message");
 
-      // Clear input and notify parent
+      // Clear form
       setContent("");
       setFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       onMessageSent?.();
     } catch (error) {
       console.error("Error sending message:", error);
-      setError(error instanceof Error ? error.message : "Failed to send message");
+      alert("Failed to send message. Please try again.");
     } finally {
-      setIsLoading(false);
+      setIsSending(false);
+      setIsUploading(false);
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-    const validFiles = selectedFiles.filter(file => {
-      const isValidType = /^(image\/|application\/pdf)/.test(file.type);
-      const isValidSize = file.size <= 5 * 1024 * 1024; // 5MB
-      return isValidType && isValidSize;
-    });
-
-    if (validFiles.length !== selectedFiles.length) {
-      setError("Some files were skipped. Only images and PDFs under 5MB are allowed.");
-    }
-
-    setFiles(prev => [...prev, ...validFiles]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFiles(selectedFiles);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="text-red-500 text-sm p-2 bg-red-50 rounded">
-          {error}
-        </div>
-      )}
-
-      {/* File previews */}
+    <form onSubmit={handleSubmit} className="space-y-2">
+      {/* File preview */}
       {files.length > 0 && (
         <div className="flex gap-2 flex-wrap">
           {files.map((file, index) => (
@@ -108,11 +83,13 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
               key={index}
               className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1"
             >
-              <span className="text-sm truncate max-w-xs">{file.name}</span>
+              <span className="text-sm truncate max-w-[200px]">
+                {file.name}
+              </span>
               <button
                 type="button"
-                onClick={() => removeFile(index)}
-                className="text-gray-500 hover:text-gray-700"
+                onClick={() => setFiles(files.filter((_, i) => i !== index))}
+                className="text-red-500 hover:text-red-700"
               >
                 ×
               </button>
@@ -123,36 +100,40 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
 
       {/* Input area */}
       <div className="flex gap-2">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden"
-          multiple
-          accept="image/*,.pdf"
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="px-3 py-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
-          disabled={isLoading}
-        >
-          +
-        </button>
-        <input
-          type="text"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:border-blue-500"
-          disabled={isLoading}
-        />
+        <div className="flex-1 relative">
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Type a message..."
+            className="w-full resize-none rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 p-2 pr-24"
+            rows={1}
+            disabled={isSending || isUploading}
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              multiple
+              accept="image/*,.pdf,.doc,.docx,.txt"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-gray-500 hover:text-gray-700"
+              disabled={isSending || isUploading}
+            >
+              📎
+            </button>
+          </div>
+        </div>
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
-          disabled={isLoading || (!content.trim() && files.length === 0)}
+          disabled={(!content.trim() && files.length === 0) || isSending || isUploading}
+          className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed min-w-[80px]"
         >
-          {isLoading ? "Sending..." : "Send"}
+          {isUploading ? "Uploading..." : isSending ? "Sending..." : "Send"}
         </button>
       </div>
     </form>

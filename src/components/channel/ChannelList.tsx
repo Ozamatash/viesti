@@ -71,7 +71,7 @@ export function ChannelList() {
               </div>
             )}
             <div className="text-xs text-gray-500">
-              {channel._count.members} members
+              {channel._count?.members ?? 1} members
             </div>
           </Link>
         ))}
