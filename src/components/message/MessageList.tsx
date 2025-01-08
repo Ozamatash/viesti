@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useSocket } from "~/hooks/useSocket";
-import { MessageInput } from "./MessageInput";
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import { Button } from "~/components/ui/button";
+import { Skeleton } from "~/components/ui/skeleton";
+import { MessageSquare, FileText, RefreshCcw } from "lucide-react";
+import { cn } from "~/lib/utils";
 
 interface Message {
   id: number;
@@ -42,6 +46,13 @@ export function MessageList({ channelId }: MessageListProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const socket = useSocket();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  };
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -49,7 +60,9 @@ export function MessageList({ channelId }: MessageListProps) {
       const res = await fetch(`/api/channels/${channelId}/messages`);
       if (!res.ok) throw new Error('Failed to fetch messages');
       const data = await res.json();
-      setMessages(data);
+      setMessages(data.reverse());
+      // Scroll to bottom after messages load
+      setTimeout(scrollToBottom, 100);
     } catch (error) {
       console.error("Error fetching messages:", error);
       setError("Failed to load messages. Please try again.");
@@ -85,8 +98,11 @@ export function MessageList({ channelId }: MessageListProps) {
         if (prev.some(m => m.id === message.id)) {
           return prev;
         }
-        // Add new message at the beginning
-        return [message, ...prev];
+        // Add new message at the end
+        const newMessages = [...prev, message];
+        // Scroll to bottom after new message
+        setTimeout(scrollToBottom, 100);
+        return newMessages;
       });
     };
 
@@ -102,109 +118,133 @@ export function MessageList({ channelId }: MessageListProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="animate-pulse">
-          <div className="h-12 bg-gray-200 rounded w-3/4" />
-          <div className="h-4 bg-gray-200 rounded w-1/4 mt-2" />
-        </div>
-        <div className="animate-pulse">
-          <div className="h-12 bg-gray-200 rounded w-2/4" />
-          <div className="h-4 bg-gray-200 rounded w-1/4 mt-2" />
-        </div>
+      <div className="space-y-6">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex items-start gap-4">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="space-y-2 flex-1">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-12" />
+              </div>
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center text-red-500 py-8">
-        {error}
-        <button
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <p className="text-muted-foreground mb-4">{error}</p>
+        <Button
+          variant="outline"
+          size="sm"
           onClick={fetchMessages}
-          className="block mx-auto mt-2 text-blue-500 hover:underline"
+          className="gap-2"
         >
+          <RefreshCcw className="h-4 w-4" />
           Try again
-        </button>
+        </Button>
       </div>
     );
   }
 
   if (messages.length === 0) {
     return (
-      <div className="text-center text-gray-500 py-8">
-        No messages yet. Start the conversation!
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <MessageSquare className="h-12 w-12 text-muted-foreground/50 mb-4" />
+        <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {messages.map((message) => (
-        <div key={message.id} className="group hover:bg-gray-50 p-2 -mx-2 rounded">
-          <div className="flex items-start gap-3">
-            {/* Avatar */}
-            <div className="w-10 h-10 rounded-full bg-gray-300 flex-shrink-0">
-              {message.user.profileImageUrl && (
-                <img
-                  src={message.user.profileImageUrl}
-                  alt={message.user.username}
-                  className="w-full h-full rounded-full"
-                />
-              )}
-            </div>
+    <div ref={scrollRef} className="h-[calc(100vh-180px)] overflow-y-auto">
+      <div className="space-y-6 p-4">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={cn(
+              "group rounded-lg transition-colors",
+              "hover:bg-muted/50 -mx-2 p-2"
+            )}
+          >
+            <div className="flex items-start gap-4">
+              {/* Avatar */}
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={message.user.profileImageUrl ?? undefined} />
+                <AvatarFallback>{message.user.username[0]?.toUpperCase()}</AvatarFallback>
+              </Avatar>
 
-            {/* Message content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{message.user.username}</span>
-                <span className="text-xs text-gray-500">
-                  {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
-                </span>
+              {/* Message content */}
+              <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{message.user.username}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
+                  </span>
+                </div>
+                <p className="text-sm leading-normal break-words">{message.content}</p>
+
+                {/* Files */}
+                {message.files.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {message.files.map((file) => (
+                      <a
+                        key={file.id}
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "inline-flex items-center gap-1.5 text-xs",
+                          "text-blue-500 hover:text-blue-700 hover:underline"
+                        )}
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {file.filename}
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                {/* Reactions */}
+                {message.reactions.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {message.reactions.map((reaction) => (
+                      <div
+                        key={reaction.id}
+                        className={cn(
+                          "inline-flex items-center gap-1 text-xs",
+                          "bg-muted/50 hover:bg-muted",
+                          "rounded-full px-2 py-0.5",
+                          "transition-colors"
+                        )}
+                      >
+                        <span>{reaction.emoji}</span>
+                        <span className="text-muted-foreground">{reaction.user.username}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Thread indicator */}
+                {message._count.replies > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {message._count.replies} replies
+                  </Button>
+                )}
               </div>
-              <p className="text-gray-900 break-words">{message.content}</p>
-
-              {/* Files */}
-              {message.files.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {message.files.map((file) => (
-                    <a
-                      key={file.id}
-                      href={file.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-blue-500 hover:underline"
-                    >
-                      {file.filename}
-                    </a>
-                  ))}
-                </div>
-              )}
-
-              {/* Reactions */}
-              {message.reactions.length > 0 && (
-                <div className="mt-2 flex gap-2">
-                  {message.reactions.map((reaction) => (
-                    <div
-                      key={reaction.id}
-                      className="inline-flex items-center gap-1 bg-gray-100 rounded-full px-2 py-1 text-sm"
-                    >
-                      <span>{reaction.emoji}</span>
-                      <span className="text-gray-600">{reaction.user.username}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Thread indicator */}
-              {message._count.replies > 0 && (
-                <button className="mt-2 text-sm text-blue-500 hover:underline">
-                  {message._count.replies} replies
-                </button>
-              )}
             </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 } 

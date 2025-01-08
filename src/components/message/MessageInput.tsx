@@ -3,6 +3,10 @@
 import { useState, useRef, FormEvent, ChangeEvent } from "react";
 import { uploadFile } from "~/lib/supabase-client";
 import { useUser } from "@clerk/nextjs";
+import { Button } from "~/components/ui/button";
+import { Textarea } from "~/components/ui/textarea";
+import { Paperclip, X, Loader2, Send } from "lucide-react";
+import { cn } from "~/lib/utils";
 
 interface MessageInputProps {
   channelId: number;
@@ -74,42 +78,51 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2">
+    <form onSubmit={handleSubmit} className="space-y-3">
       {/* File preview */}
       {files.length > 0 && (
         <div className="flex gap-2 flex-wrap">
           {files.map((file, index) => (
             <div
               key={index}
-              className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1"
+              className={cn(
+                "flex items-center gap-2 text-sm",
+                "bg-muted rounded-lg px-3 py-1.5",
+                "animate-in fade-in-0 slide-in-from-bottom-2"
+              )}
             >
-              <span className="text-sm truncate max-w-[200px]">
-                {file.name}
-              </span>
-              <button
+              <span className="truncate max-w-[200px]">{file.name}</span>
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5"
                 onClick={() => setFiles(files.filter((_, i) => i !== index))}
-                className="text-red-500 hover:text-red-700"
               >
-                ×
-              </button>
+                <X className="h-3 w-3" />
+              </Button>
             </div>
           ))}
         </div>
       )}
 
       {/* Input area */}
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <div className="flex-1 relative">
-          <textarea
+          <Textarea
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setContent(e.target.value)}
+            onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
             placeholder="Type a message..."
-            className="w-full resize-none rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 p-2 pr-24"
-            rows={1}
+            className="resize-none pr-10 min-h-[44px] max-h-[200px]"
             disabled={isSending || isUploading}
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          <div className="absolute right-2 top-1/2 -translate-y-1/2">
             <input
               type="file"
               ref={fileInputRef}
@@ -118,23 +131,40 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
               multiple
               accept="image/*,.pdf,.doc,.docx,.txt"
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
               onClick={() => fileInputRef.current?.click()}
-              className="text-gray-500 hover:text-gray-700"
               disabled={isSending || isUploading}
             >
-              📎
-            </button>
+              <Paperclip className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-        <button
+        <Button
           type="submit"
           disabled={(!content.trim() && files.length === 0) || isSending || isUploading}
-          className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed min-w-[80px]"
+          className="min-w-[80px] h-[44px] gap-2 flex items-center justify-center px-4"
         >
-          {isUploading ? "Uploading..." : isSending ? "Sending..." : "Send"}
-        </button>
+          {isUploading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Uploading
+            </>
+          ) : isSending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Sending
+            </>
+          ) : (
+            <>
+              <Send className="h-4 w-4" />
+              Send
+            </>
+          )}
+        </Button>
       </div>
     </form>
   );
