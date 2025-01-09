@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import { ChannelList } from "~/components/channel/ChannelList";
 import { MessageList } from "~/components/message/MessageList";
 import { MessageInput } from "~/components/message/MessageInput";
+import { WorkspacePanel } from "~/components/workspace/WorkspacePanel";
 import { ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
@@ -50,11 +51,20 @@ export default async function ChannelPage(props: Props) {
       direction="horizontal"
       className="h-screen items-stretch"
     >
+      {/* Workspace panel */}
+      <ResizablePanel 
+        defaultSize={4} 
+        minSize={4} 
+        maxSize={4}
+      >
+        <WorkspacePanel />
+      </ResizablePanel>
+
       {/* Channel list */}
       <ResizablePanel 
-        defaultSize={20} 
-        minSize={15} 
-        maxSize={25} 
+        defaultSize={16} 
+        minSize={12} 
+        maxSize={20} 
         className={cn(
           "bg-muted/50 dark:bg-muted/80",
           "transition-all duration-300 ease-in-out",
