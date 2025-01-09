@@ -5,6 +5,7 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
 import { Users } from "lucide-react";
 import { Button } from "~/components/ui/button";
+import { UserProfile, UserButton } from "@clerk/nextjs";
 
 export function WorkspacePanel() {
   return (
@@ -23,6 +24,11 @@ export function WorkspacePanel() {
           {/* Future buttons can be added here */}
         </div>
       </ScrollArea>
+
+      {/* User profile button */}
+      <div className="flex items-center justify-center p-2 border-t">
+        <UserButton afterSignOutUrl="/" />
+      </div>
     </div>
   );
 } 
