@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useRef, FormEvent, ChangeEvent } from "react";
-import { uploadFile } from "~/lib/supabase-client";
-import { useUser } from "@clerk/nextjs";
+import { ChangeEvent } from "react";
 import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
 import { Paperclip, X, Loader2, Send } from "lucide-react";
 import { cn } from "~/lib/utils";
+import { useMessageInput } from "~/hooks/messages/useMessageInput";
 
 interface MessageInputProps {
   channelId: number;
@@ -14,74 +13,26 @@ interface MessageInputProps {
 }
 
 export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
-  const [content, setContent] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { user } = useUser();
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if ((!content.trim() && files.length === 0) || !user) return;
-    if (isSending || isUploading) return;
-
-    try {
-      setIsSending(true);
-      const fileUrls: string[] = [];
-
-      // Upload files if any
-      if (files.length > 0) {
-        setIsUploading(true);
-        await Promise.all(
-          files.map(async (file) => {
-            const result = await uploadFile(file, user.id);
-            fileUrls.push(result.url);
-          })
-        );
-        setIsUploading(false);
-      }
-
-      // Send message
-      const res = await fetch(`/api/channels/${channelId}/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          content: content.trim(),
-          fileUrls,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to send message");
-
-      // Clear form
-      setContent("");
-      setFiles([]);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      onMessageSent?.();
-    } catch (error) {
-      console.error("Error sending message:", error);
-      alert("Failed to send message. Please try again.");
-    } finally {
-      setIsSending(false);
-      setIsUploading(false);
-    }
-  };
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    setFiles(selectedFiles);
-  };
+  const {
+    content,
+    setContent,
+    files,
+    isUploading,
+    isSending,
+    fileInputRef,
+    handleSubmit,
+    handleFileChange,
+    removeFile,
+    openFileInput,
+    isInputDisabled,
+    isSubmitDisabled,
+  } = useMessageInput({ channelId, onMessageSent });
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="border-t bg-background">
       {/* File preview */}
       {files.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap px-4 pt-3">
           {files.map((file, index) => (
             <div
               key={index}
@@ -97,7 +48,7 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5"
-                onClick={() => setFiles(files.filter((_, i) => i !== index))}
+                onClick={() => removeFile(index)}
               >
                 <X className="h-3 w-3" />
               </Button>
@@ -107,7 +58,7 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
       )}
 
       {/* Input area */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 p-4">
         <div className="flex-1 relative">
           <Textarea
             value={content}
@@ -119,8 +70,8 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
               }
             }}
             placeholder="Type a message..."
-            className="resize-none pr-10 min-h-[44px] max-h-[200px]"
-            disabled={isSending || isUploading}
+            className="resize-none pr-10 min-h-[44px] max-h-[200px] border-muted"
+            disabled={isInputDisabled}
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2">
             <input
@@ -136,8 +87,8 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSending || isUploading}
+              onClick={openFileInput}
+              disabled={isInputDisabled}
             >
               <Paperclip className="h-4 w-4" />
             </Button>
@@ -145,7 +96,7 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
         </div>
         <Button
           type="submit"
-          disabled={(!content.trim() && files.length === 0) || isSending || isUploading}
+          disabled={isSubmitDisabled}
           className="min-w-[80px] h-[44px] gap-2 flex items-center justify-center px-4"
         >
           {isUploading ? (

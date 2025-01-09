@@ -4,7 +4,6 @@ import { db } from "~/server/db";
 import { ChannelList } from "~/components/channel/ChannelList";
 import { MessageList } from "~/components/message/MessageList";
 import { MessageInput } from "~/components/message/MessageInput";
-import { UserList } from "~/components/users/UserList";
 import { ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
@@ -51,22 +50,22 @@ export default async function ChannelPage(props: Props) {
       direction="horizontal"
       className="h-screen items-stretch"
     >
-      {/* Sidebar */}
+      {/* Channel list */}
       <ResizablePanel 
         defaultSize={20} 
         minSize={15} 
-        maxSize={30} 
+        maxSize={25} 
         className={cn(
           "bg-muted/50 dark:bg-muted/80",
-          "transition-all duration-300 ease-in-out"
+          "transition-all duration-300 ease-in-out",
+          "border-x"
         )}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center p-4 border-b bg-muted/30">
             <h2 className="text-lg font-semibold">Channels</h2>
-            <UserList />
           </div>
-          <ScrollArea className="flex-1 px-2">
+          <ScrollArea className="flex-1">
             <div className="py-2">
               <ChannelList />
             </div>
@@ -78,7 +77,7 @@ export default async function ChannelPage(props: Props) {
       <ResizablePanel defaultSize={80} className="bg-background">
         <div className="flex h-full flex-col">
           {/* Channel header */}
-          <div className="border-b p-4 bg-muted/50">
+          <div className="border-b p-4 bg-muted/30">
             <h1 className="text-lg font-semibold">#{channel.name}</h1>
             {channel.description && (
               <p className="text-sm text-muted-foreground">{channel.description}</p>
@@ -86,14 +85,12 @@ export default async function ChannelPage(props: Props) {
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 px-4">
-            <div className="py-4">
-              <MessageList channelId={channelId} />
-            </div>
-          </ScrollArea>
+          <div className="flex-1 overflow-hidden">
+            <MessageList channelId={channelId} />
+          </div>
 
           {/* Message input */}
-          <div className="border-t p-4 bg-muted/50">
+          <div className="flex-shrink-0">
             <MessageInput channelId={channelId} />
           </div>
         </div>

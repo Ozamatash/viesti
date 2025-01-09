@@ -1,52 +1,21 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useRef } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { useSocket } from "~/hooks/useSocket";
+import { useMessages } from "~/hooks/messages/useMessages";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
 import { MessageSquare, FileText, RefreshCcw } from "lucide-react";
 import { cn } from "~/lib/utils";
 
-interface Message {
-  id: number;
-  content: string;
-  createdAt: string;
-  user: {
-    id: string;
-    username: string;
-    profileImageUrl: string | null;
-  };
-  files: {
-    id: number;
-    url: string;
-    filename: string;
-    filetype: string;
-  }[];
-  reactions: {
-    id: number;
-    emoji: string;
-    user: {
-      id: string;
-      username: string;
-    };
-  }[];
-  _count: {
-    replies: number;
-  };
-}
-
 interface MessageListProps {
   channelId: number;
 }
 
 export function MessageList({ channelId }: MessageListProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const socket = useSocket();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { messages, isLoading, error, fetchMessages } = useMessages(channelId);
 
   const scrollToBottom = () => {
     if (scrollRef.current) {
@@ -54,71 +23,14 @@ export function MessageList({ channelId }: MessageListProps) {
     }
   };
 
-  const fetchMessages = useCallback(async () => {
-    try {
-      setError(null);
-      const res = await fetch(`/api/channels/${channelId}/messages`);
-      if (!res.ok) throw new Error('Failed to fetch messages');
-      const data = await res.json();
-      setMessages(data.reverse());
-      // Scroll to bottom after messages load
-      setTimeout(scrollToBottom, 100);
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-      setError("Failed to load messages. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [channelId]);
-
-  // Initial fetch
-  useEffect(() => {
-    setIsLoading(true);
-    fetchMessages();
-  }, [fetchMessages]);
-
-  // Socket.IO setup
-  useEffect(() => {
-    if (!socket) {
-      console.log('No socket connection');
-      return;
-    }
-
-    console.log('Setting up socket listeners for channel:', channelId);
-
-    // Join channel room
-    socket.emit('join-channel', channelId.toString());
-    console.log('Joined channel:', channelId);
-
-    // Listen for new messages
-    const handleNewMessage = (message: Message) => {
-      console.log('Received new message:', message);
-      setMessages(prev => {
-        // Check if message already exists
-        if (prev.some(m => m.id === message.id)) {
-          return prev;
-        }
-        // Add new message at the end
-        const newMessages = [...prev, message];
-        // Scroll to bottom after new message
-        setTimeout(scrollToBottom, 100);
-        return newMessages;
-      });
-    };
-
-    socket.on('new-message', handleNewMessage);
-
-    // Cleanup
-    return () => {
-      console.log('Cleaning up socket listeners for channel:', channelId);
-      socket.emit('leave-channel', channelId.toString());
-      socket.off('new-message', handleNewMessage);
-    };
-  }, [socket, channelId]);
+  // Scroll to bottom after messages load or new message arrives
+  if (messages.length > 0) {
+    setTimeout(scrollToBottom, 100);
+  }
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-4">
         {[1, 2, 3].map((i) => (
           <div key={i} className="flex items-start gap-4">
             <Skeleton className="h-10 w-10 rounded-full" />
@@ -142,7 +54,7 @@ export function MessageList({ channelId }: MessageListProps) {
         <Button
           variant="outline"
           size="sm"
-          onClick={fetchMessages}
+          onClick={() => fetchMessages()}
           className="gap-2"
         >
           <RefreshCcw className="h-4 w-4" />
@@ -162,19 +74,19 @@ export function MessageList({ channelId }: MessageListProps) {
   }
 
   return (
-    <div ref={scrollRef} className="h-[calc(100vh-180px)] overflow-y-auto">
-      <div className="space-y-6 p-4">
+    <div ref={scrollRef} className="h-[calc(100vh-200px)] overflow-y-auto bg-background">
+      <div className="space-y-[1px] divide-y divide-border">
         {messages.map((message) => (
           <div
             key={message.id}
             className={cn(
-              "group rounded-lg transition-colors",
-              "hover:bg-muted/50 -mx-2 p-2"
+              "group transition-colors px-4 py-3",
+              "hover:bg-muted/50"
             )}
           >
             <div className="flex items-start gap-4">
               {/* Avatar */}
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-10 w-10 shrink-0">
                 <AvatarImage src={message.user.profileImageUrl ?? undefined} />
                 <AvatarFallback>{message.user.username[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
