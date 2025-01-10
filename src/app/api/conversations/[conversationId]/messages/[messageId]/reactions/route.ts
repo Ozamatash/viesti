@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "~/server/db";
 import { emitReactionAdded } from "~/server/socket";
 
+type Context = {
+  params: Promise<{ conversationId: string; messageId: string }>;
+};
+
 export async function POST(
-  request: Request,
-  context: { params: { conversationId: string; messageId: string } }
+  request: NextRequest,
+  context: Context
 ) {
   try {
     const { userId } = await auth();
@@ -13,9 +17,8 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const params = await context.params;
-    const { conversationId } = params;
-    const messageId = Number(params.messageId);
+    const { conversationId, messageId: messageIdStr } = await context.params;
+    const messageId = Number(messageIdStr);
 
     if (isNaN(messageId)) {
       return new NextResponse("Invalid message ID", { status: 400 });

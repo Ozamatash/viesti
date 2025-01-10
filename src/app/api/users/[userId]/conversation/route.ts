@@ -1,11 +1,15 @@
 import { auth } from "@clerk/nextjs/server";
 import { db } from "~/server/db";
 import { generateConversationId } from "~/lib/conversation";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+type Context = {
+  params: Promise<{ userId: string }>;
+};
 
 export async function GET(
-  request: Request,
-  context: { params: { userId: string } }
+  request: NextRequest,
+  context: Context
 ) {
   try {
     const { userId: otherUserId } = await context.params;

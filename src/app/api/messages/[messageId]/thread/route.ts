@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "~/server/db";
 import { auth } from "@clerk/nextjs/server";
 import { emitThreadReply } from "~/server/socket";
@@ -8,7 +8,7 @@ type Context = {
 };
 
 export async function GET(
-  req: Request,
+  request: NextRequest,
   context: Context
 ) {
   try {
@@ -17,8 +17,8 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const params = await context.params;
-    const messageId = parseInt(params.messageId);
+    const { messageId: messageIdStr } = await context.params;
+    const messageId = parseInt(messageIdStr);
     if (isNaN(messageId)) {
       return new NextResponse("Invalid message ID", { status: 400 });
     }
@@ -85,7 +85,7 @@ export async function GET(
 }
 
 export async function POST(
-  req: Request,
+  request: NextRequest,
   context: Context
 ) {
   try {
@@ -94,8 +94,8 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const params = await context.params;
-    const messageId = parseInt(params.messageId);
+    const { messageId: messageIdStr } = await context.params;
+    const messageId = parseInt(messageIdStr);
     if (isNaN(messageId)) {
       return new NextResponse("Invalid message ID", { status: 400 });
     }
@@ -110,7 +110,7 @@ export async function POST(
       return new NextResponse("Parent message not found", { status: 404 });
     }
 
-    const json = await req.json();
+    const json = await request.json();
     const { content } = json;
 
     if (!content || typeof content !== "string") {
