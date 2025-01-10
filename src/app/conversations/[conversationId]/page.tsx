@@ -15,20 +15,18 @@ interface PageProps {
   params: Promise<{
     conversationId: string;
   }>;
-  searchParams?: { [key: string]: string | string[] | undefined };
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function ConversationPage({
-  params,
-  searchParams = {},
-}: PageProps) {
+export default async function ConversationPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   const { userId } = await auth();
 
   if (!userId) {
     redirect("/sign-in");
   }
 
-  const { conversationId } = await params;
+  const { conversationId } = await props.params;
   const { userId1, userId2 } = parseConversationId(conversationId);
 
   // Verify that the current user is part of the conversation
