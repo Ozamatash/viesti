@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 import { useSocket } from "../useSocket";
 
@@ -48,15 +48,27 @@ interface UseMessagesProps {
   searchTerm?: string;
 }
 
+interface MessagesResponse {
+  messages: Message[];
+  hasMore: boolean;
+}
+
 const fetcher = async (url: string) => {
   const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to fetch messages');
   const data = await res.json();
-  return Array.isArray(data) ? data.reverse() : (data.messages || []).reverse();
+  return {
+    messages: data.messages.reverse(),
+    hasMore: data.hasMore,
+  };
 };
 
 export function useMessages({ channelId, conversationId, searchTerm }: UseMessagesProps) {
   const socket = useSocket();
+  const [skip, setSkip] = useState(0);
+  const [allMessages, setAllMessages] = useState<Message[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Create the key for SWR
   const getKey = useCallback(() => {
@@ -70,13 +82,33 @@ export function useMessages({ channelId, conversationId, searchTerm }: UseMessag
     if (searchTerm) {
       url.searchParams.set('search', searchTerm);
     }
+    url.searchParams.set('skip', skip.toString());
     
     return url.toString();
-  }, [channelId, conversationId, searchTerm]);
+  }, [channelId, conversationId, searchTerm, skip]);
 
-  const { data: messages, error, mutate } = useSWR<Message[]>(getKey, fetcher, {
-    revalidateOnFocus: false, // Don't revalidate on tab focus
+  const { data, error, mutate } = useSWR<MessagesResponse>(getKey, fetcher, {
+    revalidateOnFocus: false,
   });
+
+  // Update allMessages when data changes
+  useEffect(() => {
+    if (data) {
+      if (skip === 0) {
+        setAllMessages(data.messages);
+      } else {
+        setAllMessages(prev => [...data.messages, ...prev]);
+      }
+      setHasMore(data.hasMore);
+    }
+  }, [data, skip]);
+
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    setSkip(prev => prev + 50);
+    setIsLoadingMore(false);
+  }, [isLoadingMore, hasMore]);
 
   // Socket.IO setup
   useEffect(() => {
@@ -105,17 +137,17 @@ export function useMessages({ channelId, conversationId, searchTerm }: UseMessag
     // Listen for new messages
     const handleNewMessage = (message: Message) => {
       console.log('Received new message:', message);
-      mutate(currentMessages => {
+      setAllMessages(currentMessages => {
         if (!currentMessages) return [message];
         if (currentMessages.some(m => m.id === message.id)) return currentMessages;
         return [...currentMessages, message];
-      }, false);
+      });
     };
 
     // Listen for reactions
     const handleReaction = ({ messageId, reaction }: { messageId: number; reaction: Reaction }) => {
       console.log('Received reaction:', { messageId, reaction });
-      mutate(currentMessages => {
+      setAllMessages(currentMessages => {
         if (!currentMessages) return currentMessages;
 
         return currentMessages.map(msg => {
@@ -145,7 +177,7 @@ export function useMessages({ channelId, conversationId, searchTerm }: UseMessag
             reactions: [...msg.reactions, reaction],
           };
         });
-      }, false).catch(console.error);
+      });
     };
 
     socket.on('new-message', handleNewMessage);
@@ -167,12 +199,15 @@ export function useMessages({ channelId, conversationId, searchTerm }: UseMessag
       socket.off('new-dm-message', handleNewMessage);
       socket.off('reaction-added', handleReaction);
     };
-  }, [socket, channelId, conversationId, mutate]);
+  }, [socket, channelId, conversationId]);
 
   return {
-    messages: messages || [],
-    isLoading: !error && !messages,
+    messages: allMessages || [],
+    isLoading: !error && !data,
+    isLoadingMore,
     error: error?.message || null,
+    hasMore,
+    loadMore,
     mutate,
   };
 } 

@@ -26,6 +26,7 @@ export async function GET(
     // Get search term from query params
     const searchParams = request.nextUrl.searchParams;
     const searchTerm = searchParams.get('search');
+    const skip = Number(searchParams.get('skip') || '0');
 
     // Check if channel is public or user is a member
     const channel = await db.channel.findUnique({
@@ -86,10 +87,28 @@ export async function GET(
       orderBy: {
         createdAt: "desc",
       },
-      take: 50, // Limit to last 50 messages as per PRD
+      take: 50,
+      skip: skip,
     });
 
-    return NextResponse.json(messages);
+    // Get total count for pagination
+    const totalCount = await db.message.count({
+      where: {
+        channelId,
+        parentMessageId: null,
+        ...(searchTerm ? {
+          content: {
+            contains: searchTerm,
+            mode: 'insensitive',
+          },
+        } : {}),
+      },
+    });
+
+    return NextResponse.json({
+      messages,
+      hasMore: skip + 50 < totalCount,
+    });
   } catch (error) {
     console.error("[MESSAGES_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });

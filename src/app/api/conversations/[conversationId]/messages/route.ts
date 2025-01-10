@@ -17,6 +17,7 @@ export async function GET(
     const { conversationId } = context.params;
     const url = new URL(request.url);
     const searchTerm = url.searchParams.get('search');
+    const skip = Number(url.searchParams.get('skip') || '0');
 
     // Parse conversation ID to get both user IDs
     const { userId1, userId2 } = parseConversationId(conversationId);
@@ -70,6 +71,20 @@ export async function GET(
         createdAt: "desc",
       },
       take: 50,
+      skip: skip,
+    });
+
+    // Get total count for pagination
+    const totalCount = await db.directMessage.count({
+      where: {
+        conversationId,
+        ...(searchTerm ? {
+          content: {
+            contains: searchTerm,
+            mode: 'insensitive',
+          },
+        } : {}),
+      },
     });
 
     // Format messages to match channel message format
@@ -78,7 +93,10 @@ export async function GET(
       user: message.sender,
     }));
 
-    return NextResponse.json(formattedMessages);
+    return NextResponse.json({
+      messages: formattedMessages,
+      hasMore: skip + 50 < totalCount,
+    });
   } catch (error) {
     console.error("[CONVERSATION_MESSAGES_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });

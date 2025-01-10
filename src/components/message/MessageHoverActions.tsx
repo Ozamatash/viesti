@@ -32,12 +32,12 @@ export function MessageHoverActions({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-8 w-8 relative"
           onClick={onThreadClick}
         >
           <MessageSquare className="h-4 w-4" />
           {replyCount > 0 && (
-            <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full w-4 h-4 flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 h-4 w-4 text-[10px] flex items-center justify-center bg-primary text-primary-foreground rounded-full">
               {replyCount}
             </span>
           )}

@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useMessageSearch } from "~/hooks/messages/useMessageSearch";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
-import { FileText, MessageSquare } from "lucide-react";
+import { FileText, MessageSquare, Loader2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { SearchInput } from "~/components/ui/search-input";
 import { MessageHoverActions } from "./MessageHoverActions";
@@ -33,6 +33,9 @@ export function MessageList({ channelId, conversationId, messageId, isThread }: 
     handleSearch,
     searchTerm,
     scrollToMessage,
+    hasMore,
+    isLoadingMore,
+    loadMore,
   } = useMessageSearch({ channelId, conversationId });
 
   const { thread } = useThread(messageId || 0);
@@ -72,19 +75,40 @@ export function MessageList({ channelId, conversationId, messageId, isThread }: 
     }
   };
 
-  // Scroll to bottom after messages load or new message arrives
-  if (displayMessages.length > 0 && !searchTerm) {
-    setTimeout(scrollToBottom, 100);
-  }
+  // Handle scrolling behavior
+  useEffect(() => {
+    if (!displayMessages.length || searchTerm || isLoadingMore) return;
+
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    // Get the previous messages length from a ref to detect new messages
+    const prevMessagesLength = (scrollEl as any)._prevMessagesLength || 0;
+    (scrollEl as any)._prevMessagesLength = displayMessages.length;
+
+    // If this is the initial load or we have new messages
+    if (prevMessagesLength === 0 || displayMessages.length > prevMessagesLength) {
+      // On initial load, always scroll to bottom
+      if (prevMessagesLength === 0) {
+        scrollToBottom();
+      } else {
+        // For new messages, only scroll if we're near the bottom
+        const isAtBottom = scrollEl.scrollHeight - scrollEl.scrollTop <= scrollEl.clientHeight + 100;
+        if (isAtBottom) {
+          scrollToBottom();
+        }
+      }
+    }
+  }, [displayMessages.length, searchTerm, isLoadingMore]);
 
   const handleThreadClick = (messageId: number) => {
     setThreadOpen(messageId);
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-200px)]">
+    <div className="flex flex-col h-full">
       {!isThread && (
-        <div className="p-4 border-b relative">
+        <div className="flex-shrink-0 p-4 border-b relative">
           <SearchInput
             placeholder="Search messages..."
             onSearch={handleSearch}
@@ -102,43 +126,63 @@ export function MessageList({ channelId, conversationId, messageId, isThread }: 
                   No messages found
                 </div>
               ) : (
-                <div>
-                  {searchResults.map((message) => (
-                    <button
-                      key={message.id}
-                      onClick={() => {
-                        scrollToMessage(message.id);
-                        handleSearch(""); // Clear search after clicking
-                      }}
-                      className={cn(
-                        "w-full text-left px-4 py-3",
-                        "hover:bg-muted focus:bg-muted",
-                        "focus:outline-none transition-colors"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={message.user.profileImageUrl ?? undefined} />
-                          <AvatarFallback>{message.user.username[0]?.toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium text-sm">{message.user.username}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate">{message.content}</p>
-                    </button>
-                  ))}
-                </div>
+                searchResults.map((message) => (
+                  <button
+                    key={message.id}
+                    onClick={() => {
+                      scrollToMessage(message.id);
+                      handleSearch(""); // Clear search after clicking
+                    }}
+                    className={cn(
+                      "w-full text-left px-4 py-3",
+                      "hover:bg-muted focus:bg-muted",
+                      "focus:outline-none transition-colors"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={message.user.profileImageUrl ?? undefined} />
+                        <AvatarFallback>{message.user.username[0]?.toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-sm">{message.user.username}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">{message.content}</p>
+                  </button>
+                ))
               )}
             </div>
           )}
         </div>
       )}
-      
-      {/* Main Message List */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-background">
-        <div className="space-y-[1px] divide-y divide-border">
+
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+        <div className="space-y-4">
+          {/* Load More Button */}
+          {!isThread && hasMore && (
+            <div className="flex justify-center mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="w-32"
+              >
+                {isLoadingMore ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </div>
+                ) : (
+                  "Load More"
+                )}
+              </Button>
+            </div>
+          )}
+
           {displayMessages.map((message) => (
             <div
               id={`message-${message.id}`}

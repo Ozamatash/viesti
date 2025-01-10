@@ -17,7 +17,15 @@ export function useMessageSearch({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   
   // Regular messages without search
-  const { messages, isLoading, error, mutate } = useMessages({
+  const { 
+    messages, 
+    isLoading, 
+    error, 
+    mutate,
+    hasMore,
+    isLoadingMore,
+    loadMore,
+  } = useMessages({
     channelId,
     conversationId,
   });
@@ -43,7 +51,7 @@ export function useMessageSearch({
       if (!res.ok) throw new Error('Failed to search messages');
       const data = await res.json();
       
-      setSearchResults(Array.isArray(data) ? data : data.messages || []);
+      setSearchResults(Array.isArray(data.messages) ? data.messages : data.messages || []);
     } catch (error) {
       console.error("Error searching messages:", error);
     } finally {
@@ -72,5 +80,8 @@ export function useMessageSearch({
     handleSearch,
     scrollToMessage,
     mutate,
+    hasMore,
+    isLoadingMore,
+    loadMore,
   };
 } 

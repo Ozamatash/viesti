@@ -49,13 +49,14 @@ export default async function ChannelPage(props: Props) {
   return (
     <ResizablePanelGroup
       direction="horizontal"
-      className="h-screen items-stretch"
+      className="h-full items-stretch"
     >
       {/* Workspace panel */}
       <ResizablePanel 
         defaultSize={4} 
         minSize={4} 
         maxSize={4}
+        className="h-full"
       >
         <WorkspacePanel />
       </ResizablePanel>
@@ -66,13 +67,14 @@ export default async function ChannelPage(props: Props) {
         minSize={12} 
         maxSize={20} 
         className={cn(
+          "h-full",
           "bg-muted/50 dark:bg-muted/80",
           "transition-all duration-300 ease-in-out",
           "border-x"
         )}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center p-4 border-b bg-muted/30">
+          <div className="flex-shrink-0 flex items-center p-4 border-b bg-muted/30">
             <h2 className="text-lg font-semibold">Channels</h2>
           </div>
           <ScrollArea className="flex-1">
@@ -84,10 +86,10 @@ export default async function ChannelPage(props: Props) {
       </ResizablePanel>
 
       {/* Main content */}
-      <ResizablePanel defaultSize={80} className="bg-background">
+      <ResizablePanel defaultSize={80} className="h-full bg-background">
         <div className="flex h-full flex-col">
           {/* Channel header */}
-          <div className="border-b p-4 bg-muted/30">
+          <div className="flex-shrink-0 border-b p-4 bg-muted/30">
             <h1 className="text-lg font-semibold">#{channel.name}</h1>
             {channel.description && (
               <p className="text-sm text-muted-foreground">{channel.description}</p>

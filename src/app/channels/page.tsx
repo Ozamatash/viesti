@@ -16,13 +16,14 @@ export default async function ChannelsPage() {
   return (
     <ResizablePanelGroup
       direction="horizontal"
-      className="h-screen items-stretch"
+      className="h-full items-stretch"
     >
       {/* Workspace panel */}
       <ResizablePanel 
         defaultSize={4} 
         minSize={4} 
         maxSize={4}
+        className="h-full"
       >
         <WorkspacePanel />
       </ResizablePanel>
@@ -33,13 +34,14 @@ export default async function ChannelsPage() {
         minSize={12} 
         maxSize={20} 
         className={cn(
+          "h-full",
           "bg-muted/50 dark:bg-muted/80",
           "transition-all duration-300 ease-in-out",
           "border-x"
         )}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center p-4 border-b bg-muted/30">
+          <div className="flex-shrink-0 flex items-center p-4 border-b bg-muted/30">
             <h2 className="text-lg font-semibold">Channels</h2>
           </div>
           <ScrollArea className="flex-1">
@@ -51,7 +53,7 @@ export default async function ChannelsPage() {
       </ResizablePanel>
 
       {/* Main content */}
-      <ResizablePanel defaultSize={80} className="bg-background">
+      <ResizablePanel defaultSize={80} className="h-full bg-background">
         <div className="flex h-full flex-col items-center justify-center space-y-4">
           <h1 className="text-2xl font-bold">Welcome to Viesti</h1>
           <p className="text-muted-foreground">Select a channel to start chatting</p>
