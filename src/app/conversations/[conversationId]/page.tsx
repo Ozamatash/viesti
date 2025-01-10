@@ -12,16 +12,14 @@ import { parseConversationId } from "~/lib/conversation";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     conversationId: string;
-  };
-  searchParams: Record<string, string | string[] | undefined>;
+  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export default async function ConversationPage({
-  params,
-  searchParams,
-}: PageProps) {
+export default async function ConversationPage(props: PageProps) {
+  const params = await props.params;
   const { userId } = await auth();
 
   if (!userId) {
