@@ -3,16 +3,9 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "~/server/db";
 import { emitReactionAdded } from "~/server/socket";
 
-type Context = {
-  params: {
-    channelId: string;
-    messageId: string;
-  };
-};
-
 export async function POST(
   request: NextRequest,
-  { params }: Context
+  { params }: { params: { channelId: string; messageId: string } }
 ) {
   try {
     const { userId } = await auth();
