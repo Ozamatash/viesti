@@ -11,9 +11,17 @@ interface MessageInputProps {
   channelId?: number;
   conversationId?: string;
   onMessageSent?: () => void;
+  onSend?: (content: string) => Promise<void>;
+  isThread?: boolean;
 }
 
-export function MessageInput({ channelId, conversationId, onMessageSent }: MessageInputProps) {
+export function MessageInput({ 
+  channelId, 
+  conversationId, 
+  onMessageSent,
+  onSend,
+  isThread 
+}: MessageInputProps) {
   const {
     content,
     setContent,
@@ -21,13 +29,23 @@ export function MessageInput({ channelId, conversationId, onMessageSent }: Messa
     isUploading,
     isSending,
     fileInputRef,
-    handleSubmit,
+    handleSubmit: defaultHandleSubmit,
     handleFileChange,
     removeFile,
     openFileInput,
     isInputDisabled,
     isSubmitDisabled,
   } = useMessageInput({ channelId, conversationId, onMessageSent });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isThread && onSend) {
+      await onSend(content);
+      setContent("");
+    } else {
+      defaultHandleSubmit(e);
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="border-t bg-background">

@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { emitNewMessage, getIO } from "~/server/socket";
 
 export async function GET(
-  req: Request,
+  request: Request,
   context: { params: { conversationId: string } }
 ) {
   try {
@@ -14,18 +14,30 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { conversationId } = await context.params;
+    const { conversationId } = context.params;
+    const url = new URL(request.url);
+    const searchTerm = url.searchParams.get('search');
+
+    // Parse conversation ID to get both user IDs
     const { userId1, userId2 } = parseConversationId(conversationId);
 
     // Verify that the current user is part of the conversation
     if (userId !== userId1 && userId !== userId2) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return new NextResponse("Not authorized to view this conversation", {
+        status: 403,
+      });
     }
 
-    // Fetch messages
+    // Get messages
     const messages = await db.directMessage.findMany({
       where: {
         conversationId,
+        ...(searchTerm ? {
+          content: {
+            contains: searchTerm,
+            mode: 'insensitive',
+          },
+        } : {}),
       },
       include: {
         sender: {
@@ -57,10 +69,11 @@ export async function GET(
       orderBy: {
         createdAt: "desc",
       },
+      take: 50,
     });
 
-    // Map sender to user for consistency with channel messages
-    const formattedMessages = messages.map(message => ({
+    // Format messages to match channel message format
+    const formattedMessages = messages.map((message) => ({
       ...message,
       user: message.sender,
     }));

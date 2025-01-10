@@ -11,31 +11,38 @@ export const initializeSocket = (httpServer: NetServer) => {
   io.on("connection", async (socket) => {
     // Get user ID from auth token or query params
     const userId = socket.handshake.auth.userId || socket.handshake.query.userId;
-    if (userId) {
-      // Update user status to Online
+    if (!userId) return;
+
+    // Store timeout in a map to handle multiple connections
+    const timeouts = new Map<string, NodeJS.Timeout>();
+
+    // Update user status to Online
+    await db.user.update({
+      where: { id: userId as string },
+      data: { 
+        status: "Online",
+        lastSeen: new Date(),
+      },
+    });
+    io.emit("user-presence-changed", { userId, status: "Online" });
+
+    // Clear any existing timeout for this user
+    if (timeouts.has(userId as string)) {
+      clearTimeout(timeouts.get(userId as string));
+      timeouts.delete(userId as string);
+    }
+
+    // Handle presence updates
+    socket.on("user-presence-changed", async ({ userId, status }) => {
       await db.user.update({
         where: { id: userId as string },
         data: { 
-          status: "Online",
+          status: status,
           lastSeen: new Date(),
         },
       });
-
-      // Broadcast user's online status
-      io.emit("user-presence-changed", { userId, status: "Online" });
-
-      // Handle reconnection
-      socket.on("reconnect", async () => {
-        await db.user.update({
-          where: { id: userId as string },
-          data: { 
-            status: "Online",
-            lastSeen: new Date(),
-          },
-        });
-        io.emit("user-presence-changed", { userId, status: "Online" });
-      });
-    }
+      io.emit("user-presence-changed", { userId, status });
+    });
 
     socket.on("join-channel", (channelId: string) => {
       socket.join(`channel:${channelId}`);
@@ -54,30 +61,35 @@ export const initializeSocket = (httpServer: NetServer) => {
     });
 
     socket.on("disconnect", async () => {
-      if (userId) {
-        // Update user status to Offline with a small delay
-        // This allows for quick reconnections without flickering status
-        setTimeout(async () => {
-          const user = await db.user.findUnique({
-            where: { id: userId as string },
-            select: { status: true, lastSeen: true },
-          });
+      if (!userId) return;
 
-          // Only update if the last status update was from this connection
-          if (user && user.status === "Online") {
-            await db.user.update({
-              where: { id: userId as string },
-              data: { 
-                status: "Offline",
-                lastSeen: new Date(),
-              },
-            });
-
-            // Broadcast user's offline status
-            io.emit("user-presence-changed", { userId, status: "Offline" });
-          }
-        }, 2000); // 2 second delay to handle quick reconnects
+      // Clear any existing timeout
+      if (timeouts.has(userId as string)) {
+        clearTimeout(timeouts.get(userId as string));
       }
+
+      const timeout = setTimeout(async () => {
+        // Check if user has any other active connections
+        const sockets = await io.fetchSockets();
+        const userSockets = sockets.filter(s => 
+          (s.handshake.auth.userId || s.handshake.query.userId) === userId
+        );
+
+        // Only update status if no other connections exist
+        if (userSockets.length === 0) {
+          await db.user.update({
+            where: { id: userId as string },
+            data: { 
+              status: "Offline",
+              lastSeen: new Date(),
+            },
+          });
+          io.emit("user-presence-changed", { userId, status: "Offline" });
+        }
+        timeouts.delete(userId as string);
+      }, 1 * 60 * 1000); // 1 minute
+
+      timeouts.set(userId as string, timeout);
     });
   });
 
@@ -105,4 +117,33 @@ export const emitNewDirectMessage = (conversationId: string, message: any) => {
   if (!socketServer) return;
   
   socketServer.to(`conversation:${conversationId}`).emit("new-dm-message", message);
-}; 
+};
+
+export function emitReactionAdded(
+  channelOrConversationId: string | number,
+  messageId: number,
+  reaction: any
+) {
+  const socketServer = getIO();
+  if (!socketServer) return;
+  
+  // Format the room ID correctly based on whether it's a channel or conversation
+  const roomId = typeof channelOrConversationId === 'number' 
+    ? `channel:${channelOrConversationId}`
+    : `conversation:${channelOrConversationId}`;
+
+  socketServer.to(roomId).emit("reaction-added", {
+    messageId,
+    reaction,
+  });
+}
+
+export function emitThreadReply(channelId: number, messageId: number, reply: any) {
+  const socketServer = getIO();
+  if (!socketServer) return;
+  
+  socketServer.to(`channel:${channelId}`).emit("thread-reply", {
+    messageId,
+    reply,
+  });
+} 

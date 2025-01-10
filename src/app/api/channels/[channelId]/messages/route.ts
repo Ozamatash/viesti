@@ -23,6 +23,10 @@ export async function GET(
       return new NextResponse("Invalid channel ID", { status: 400 });
     }
 
+    // Get search term from query params
+    const searchParams = request.nextUrl.searchParams;
+    const searchTerm = searchParams.get('search');
+
     // Check if channel is public or user is a member
     const channel = await db.channel.findUnique({
       where: { id: channelId },
@@ -47,6 +51,12 @@ export async function GET(
       where: {
         channelId,
         parentMessageId: null, // Only get top-level messages
+        ...(searchTerm ? {
+          content: {
+            contains: searchTerm,
+            mode: 'insensitive',
+          },
+        } : {}),
       },
       include: {
         user: {

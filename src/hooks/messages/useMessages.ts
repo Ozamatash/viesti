@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
+import useSWR from "swr";
 import { useSocket } from "../useSocket";
 
 interface Message {
@@ -31,46 +32,51 @@ interface Message {
   };
 }
 
+interface Reaction {
+  id: number;
+  emoji: string;
+  user: {
+    id: string;
+    username: string;
+  };
+  removed?: boolean;
+}
+
 interface UseMessagesProps {
   channelId?: number;
   conversationId?: string;
+  searchTerm?: string;
 }
 
-export function useMessages({ channelId, conversationId }: UseMessagesProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Failed to fetch messages');
+  const data = await res.json();
+  return Array.isArray(data) ? data.reverse() : (data.messages || []).reverse();
+};
+
+export function useMessages({ channelId, conversationId, searchTerm }: UseMessagesProps) {
   const socket = useSocket();
 
-  const fetchMessages = useCallback(async () => {
-    try {
-      setError(null);
-      const endpoint = channelId 
-        ? `/api/channels/${channelId}/messages`
-        : `/api/conversations/${conversationId}/messages`;
-      
-      const res = await fetch(endpoint);
-      if (!res.ok) throw new Error('Failed to fetch messages');
-      const data = await res.json();
-      
-      // Handle both direct API response formats
-      const messageArray = Array.isArray(data) ? data : data.messages || [];
-      setMessages(messageArray.reverse());
-      return true; // Indicate successful fetch
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-      setError("Failed to load messages. Please try again.");
-      return false;
-    } finally {
-      setIsLoading(false);
+  // Create the key for SWR
+  const getKey = useCallback(() => {
+    if (!channelId && !conversationId) return null;
+    
+    const endpoint = channelId 
+      ? `/api/channels/${channelId}/messages`
+      : `/api/conversations/${conversationId}/messages`;
+    
+    const url = new URL(endpoint, window.location.origin);
+    if (searchTerm) {
+      url.searchParams.set('search', searchTerm);
     }
-  }, [channelId, conversationId]);
+    
+    return url.toString();
+  }, [channelId, conversationId, searchTerm]);
 
-  // Initial fetch
-  useEffect(() => {
-    setIsLoading(true);
-    fetchMessages();
-  }, [fetchMessages]);
+  const { data: messages, error, mutate } = useSWR<Message[]>(getKey, fetcher, {
+    revalidateOnFocus: false, // Don't revalidate on tab focus
+  });
 
   // Socket.IO setup
   useEffect(() => {
@@ -99,18 +105,52 @@ export function useMessages({ channelId, conversationId }: UseMessagesProps) {
     // Listen for new messages
     const handleNewMessage = (message: Message) => {
       console.log('Received new message:', message);
-      setMessages(prev => {
-        // Check if message already exists
-        if (prev.some(m => m.id === message.id)) {
-          return prev;
-        }
-        // Add new message at the end
-        return [...prev, message];
-      });
+      mutate(currentMessages => {
+        if (!currentMessages) return [message];
+        if (currentMessages.some(m => m.id === message.id)) return currentMessages;
+        return [...currentMessages, message];
+      }, false);
+    };
+
+    // Listen for reactions
+    const handleReaction = ({ messageId, reaction }: { messageId: number; reaction: Reaction }) => {
+      console.log('Received reaction:', { messageId, reaction });
+      mutate(currentMessages => {
+        if (!currentMessages) return currentMessages;
+
+        return currentMessages.map(msg => {
+          if (msg.id !== messageId) return msg;
+
+          if (reaction.removed) {
+            return {
+              ...msg,
+              reactions: msg.reactions.filter(r => r.id !== reaction.id),
+            };
+          }
+
+          const existingReactionIndex = msg.reactions.findIndex(r => r.id === reaction.id);
+          if (existingReactionIndex !== -1) {
+            // Update existing reaction
+            const updatedReactions = [...msg.reactions];
+            updatedReactions[existingReactionIndex] = reaction;
+            return {
+              ...msg,
+              reactions: updatedReactions,
+            };
+          }
+
+          // Add new reaction
+          return {
+            ...msg,
+            reactions: [...msg.reactions, reaction],
+          };
+        });
+      }, false).catch(console.error);
     };
 
     socket.on('new-message', handleNewMessage);
     socket.on('new-dm-message', handleNewMessage);
+    socket.on('reaction-added', handleReaction);
 
     // Cleanup
     return () => {
@@ -125,13 +165,14 @@ export function useMessages({ channelId, conversationId }: UseMessagesProps) {
       socket.off('reconnect', joinRoom);
       socket.off('new-message', handleNewMessage);
       socket.off('new-dm-message', handleNewMessage);
+      socket.off('reaction-added', handleReaction);
     };
-  }, [socket, channelId, conversationId]);
+  }, [socket, channelId, conversationId, mutate]);
 
   return {
-    messages,
-    isLoading,
-    error,
-    fetchMessages,
+    messages: messages || [],
+    isLoading: !error && !messages,
+    error: error?.message || null,
+    mutate,
   };
 } 

@@ -28,6 +28,8 @@ export const useSocket = () => {
       socket.on('connect', () => {
         console.log('Socket connected');
         reconnectAttemptRef.current = 0;
+        // Emit presence update on connection
+        socket.emit('user-presence-changed', { userId, status: 'Online' });
       });
 
       socket.on('disconnect', (reason) => {
@@ -40,6 +42,9 @@ export const useSocket = () => {
 
       socket.on('reconnect', (attemptNumber) => {
         console.log('Socket reconnected after', attemptNumber, 'attempts');
+        reconnectAttemptRef.current = 0;
+        // Emit presence update on reconnection
+        socket.emit('user-presence-changed', { userId, status: 'Online' });
       });
 
       socket.on('reconnect_attempt', (attemptNumber) => {
