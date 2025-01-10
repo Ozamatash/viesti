@@ -9,20 +9,24 @@ import { ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
 
-type Props = {
-  params: Promise<{ channelId: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-};
+interface PageProps {
+  params: {
+    channelId: string;
+  };
+  searchParams?: { [key: string]: string | string[] | undefined };
+}
 
-export default async function ChannelPage(props: Props) {
+export default async function ChannelPage({
+  params,
+  searchParams = {},
+}: PageProps) {
   const { userId } = await auth();
-  const params = await props.params;
+  const channelId = Number(params.channelId);
 
   if (!userId) {
     redirect("/sign-in");
   }
 
-  const channelId = Number(params.channelId);
   if (isNaN(channelId)) {
     redirect("/channels");
   }

@@ -11,12 +11,17 @@ import { UserList } from "~/components/users/UserList";
 import { parseConversationId } from "~/lib/conversation";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 
-type Props = {
-  params: { conversationId: string };
-  searchParams: { [key: string]: string | string[] | undefined };
-};
+interface PageProps {
+  params: {
+    conversationId: string;
+  };
+  searchParams?: { [key: string]: string | string[] | undefined };
+}
 
-export default async function ConversationPage({ params, searchParams }: Props) {
+export default async function ConversationPage({
+  params,
+  searchParams = {},
+}: PageProps) {
   const { userId } = await auth();
 
   if (!userId) {
