@@ -10,12 +10,13 @@ import { MessageSquare, FileText, RefreshCcw } from "lucide-react";
 import { cn } from "~/lib/utils";
 
 interface MessageListProps {
-  channelId: number;
+  channelId?: number;
+  conversationId?: string;
 }
 
-export function MessageList({ channelId }: MessageListProps) {
+export function MessageList({ channelId, conversationId }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { messages, isLoading, error, fetchMessages } = useMessages(channelId);
+  const { messages, isLoading, error, fetchMessages } = useMessages({ channelId, conversationId });
 
   const scrollToBottom = () => {
     if (scrollRef.current) {
@@ -142,8 +143,8 @@ export function MessageList({ channelId }: MessageListProps) {
                   </div>
                 )}
 
-                {/* Thread indicator */}
-                {message._count.replies > 0 && (
+                {/* Thread indicator - only show for channel messages */}
+                {channelId && message._count && message._count.replies > 0 && (
                   <Button
                     variant="ghost"
                     size="sm"

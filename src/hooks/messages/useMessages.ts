@@ -26,12 +26,17 @@ interface Message {
       username: string;
     };
   }[];
-  _count: {
+  _count?: {
     replies: number;
   };
 }
 
-export function useMessages(channelId: number) {
+interface UseMessagesProps {
+  channelId?: number;
+  conversationId?: string;
+}
+
+export function useMessages({ channelId, conversationId }: UseMessagesProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +45,17 @@ export function useMessages(channelId: number) {
   const fetchMessages = useCallback(async () => {
     try {
       setError(null);
-      const res = await fetch(`/api/channels/${channelId}/messages`);
+      const endpoint = channelId 
+        ? `/api/channels/${channelId}/messages`
+        : `/api/conversations/${conversationId}/messages`;
+      
+      const res = await fetch(endpoint);
       if (!res.ok) throw new Error('Failed to fetch messages');
       const data = await res.json();
-      setMessages(data.reverse());
+      
+      // Handle both direct API response formats
+      const messageArray = Array.isArray(data) ? data : data.messages || [];
+      setMessages(messageArray.reverse());
       return true; // Indicate successful fetch
     } catch (error) {
       console.error("Error fetching messages:", error);
@@ -52,7 +64,7 @@ export function useMessages(channelId: number) {
     } finally {
       setIsLoading(false);
     }
-  }, [channelId]);
+  }, [channelId, conversationId]);
 
   // Initial fetch
   useEffect(() => {
@@ -67,11 +79,22 @@ export function useMessages(channelId: number) {
       return;
     }
 
-    console.log('Setting up socket listeners for channel:', channelId);
+    const joinRoom = () => {
+      if (channelId) {
+        console.log('Setting up socket listeners for channel:', channelId);
+        socket.emit('join-channel', channelId.toString());
+        console.log('Joined channel:', channelId);
+      } else if (conversationId) {
+        console.log('Setting up socket listeners for conversation:', conversationId);
+        socket.emit('join-conversation', conversationId);
+        console.log('Joined conversation:', conversationId);
+      }
+    };
 
-    // Join channel room
-    socket.emit('join-channel', channelId.toString());
-    console.log('Joined channel:', channelId);
+    // Join room on initial connection and reconnects
+    joinRoom();
+    socket.on('connect', joinRoom);
+    socket.on('reconnect', joinRoom);
 
     // Listen for new messages
     const handleNewMessage = (message: Message) => {
@@ -87,14 +110,23 @@ export function useMessages(channelId: number) {
     };
 
     socket.on('new-message', handleNewMessage);
+    socket.on('new-dm-message', handleNewMessage);
 
     // Cleanup
     return () => {
-      console.log('Cleaning up socket listeners for channel:', channelId);
-      socket.emit('leave-channel', channelId.toString());
+      if (channelId) {
+        console.log('Cleaning up socket listeners for channel:', channelId);
+        socket.emit('leave-channel', channelId.toString());
+      } else if (conversationId) {
+        console.log('Cleaning up socket listeners for conversation:', conversationId);
+        socket.emit('leave-conversation', conversationId);
+      }
+      socket.off('connect', joinRoom);
+      socket.off('reconnect', joinRoom);
       socket.off('new-message', handleNewMessage);
+      socket.off('new-dm-message', handleNewMessage);
     };
-  }, [socket, channelId]);
+  }, [socket, channelId, conversationId]);
 
   return {
     messages,

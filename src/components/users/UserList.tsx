@@ -2,13 +2,15 @@
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "~/components/ui/sheet";
 import { Button } from "~/components/ui/button";
-import { Users } from "lucide-react";
+import { Users, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { useUsers } from "~/hooks/users/useUsers";
 import { Skeleton } from "~/components/ui/skeleton";
 import { RefreshCcw } from "lucide-react";
 import { cn } from "~/lib/utils";
+import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 
 interface UserListProps {
   variant?: "sheet" | "workspace" | "workspace-button";
@@ -16,6 +18,25 @@ interface UserListProps {
 
 export function UserList({ variant = "sheet" }: UserListProps) {
   const { users, isLoading, error, fetchUsers } = useUsers();
+  const router = useRouter();
+  const { user: currentUser } = useUser();
+
+  const handleMessageClick = async (userId: string) => {
+    if (!currentUser?.id) return;
+    
+    try {
+      // Get or initialize conversation
+      const res = await fetch(`/api/users/${userId}/conversation`);
+      if (!res.ok) throw new Error('Failed to get conversation');
+      const data = await res.json();
+      
+      // Navigate to the conversation
+      router.push(`/conversations/${data.conversationId}`);
+    } catch (error) {
+      console.error('Error getting conversation:', error);
+      alert('Failed to open conversation. Please try again.');
+    }
+  };
 
   const UserListContent = () => {
     if (isLoading) {
@@ -51,13 +72,15 @@ export function UserList({ variant = "sheet" }: UserListProps) {
       );
     }
 
+    const filteredUsers = users.filter(user => user.id !== currentUser?.id);
+
     return (
       <div className="divide-y divide-border/30">
-        {users.map((user) => (
+        {filteredUsers.map((user) => (
           <div
             key={user.id}
             className={cn(
-              "flex items-center gap-3 p-3 transition-colors",
+              "flex items-center gap-3 p-3 transition-colors group",
               variant === "sheet" 
                 ? "hover:bg-accent hover:text-accent-foreground"
                 : "hover:bg-white/10 rounded-md mx-1"
@@ -76,7 +99,7 @@ export function UserList({ variant = "sheet" }: UserListProps) {
                 )}
               />
             </div>
-            <div className="flex flex-col min-w-0">
+            <div className="flex flex-col min-w-0 flex-1">
               <span className="text-sm font-medium truncate">{user.username}</span>
               <span
                 className={cn(
@@ -89,6 +112,15 @@ export function UserList({ variant = "sheet" }: UserListProps) {
                 {user.status}
               </span>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => handleMessageClick(user.id)}
+              title="Send message"
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Button>
           </div>
         ))}
       </div>

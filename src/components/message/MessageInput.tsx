@@ -8,11 +8,12 @@ import { cn } from "~/lib/utils";
 import { useMessageInput } from "~/hooks/messages/useMessageInput";
 
 interface MessageInputProps {
-  channelId: number;
+  channelId?: number;
+  conversationId?: string;
   onMessageSent?: () => void;
 }
 
-export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
+export function MessageInput({ channelId, conversationId, onMessageSent }: MessageInputProps) {
   const {
     content,
     setContent,
@@ -26,7 +27,7 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
     openFileInput,
     isInputDisabled,
     isSubmitDisabled,
-  } = useMessageInput({ channelId, onMessageSent });
+  } = useMessageInput({ channelId, conversationId, onMessageSent });
 
   return (
     <form onSubmit={handleSubmit} className="border-t bg-background">

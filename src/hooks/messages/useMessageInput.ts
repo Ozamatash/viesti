@@ -5,11 +5,12 @@ import { useUser } from "@clerk/nextjs";
 import { uploadFile } from "~/lib/supabase-client";
 
 interface UseMessageInputProps {
-  channelId: number;
+  channelId?: number;
+  conversationId?: string;
   onMessageSent?: () => void;
 }
 
-export function useMessageInput({ channelId, onMessageSent }: UseMessageInputProps) {
+export function useMessageInput({ channelId, conversationId, onMessageSent }: UseMessageInputProps) {
   const [content, setContent] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -39,7 +40,11 @@ export function useMessageInput({ channelId, onMessageSent }: UseMessageInputPro
       }
 
       // Send message
-      const res = await fetch(`/api/channels/${channelId}/messages`, {
+      const endpoint = channelId 
+        ? `/api/channels/${channelId}/messages`
+        : `/api/conversations/${conversationId}/messages`;
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
