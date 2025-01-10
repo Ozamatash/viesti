@@ -3,7 +3,7 @@ import { db } from "~/server/db";
 import { auth } from "@clerk/nextjs/server";
 
 type Context = {
-  params: Promise<{ channelId: string }>;
+  params: { channelId: string };
 };
 
 // Get channel members

@@ -4,7 +4,7 @@ import { db } from "~/server/db";
 import { emitReactionAdded } from "~/server/socket";
 
 type Context = {
-  params: Promise<{ conversationId: string; messageId: string }>;
+  params: { conversationId: string; messageId: string };
 };
 
 export async function POST(

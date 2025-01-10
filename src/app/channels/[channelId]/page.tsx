@@ -10,18 +10,18 @@ import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
 
 interface PageProps {
-  params: Promise<{
+  params: {
     channelId: string;
-  }>;
-  searchParams?: { [key: string]: string | string[] | undefined };
+  };
+  searchParams: Record<string, string | string[] | undefined>;
 }
 
 export default async function ChannelPage({
   params,
-  searchParams = {},
+  searchParams,
 }: PageProps) {
   const { userId } = await auth();
-  const { channelId: channelIdStr } = await params;
+  const { channelId: channelIdStr } = params;
   const channelId = Number(channelIdStr);
 
   if (!userId) {

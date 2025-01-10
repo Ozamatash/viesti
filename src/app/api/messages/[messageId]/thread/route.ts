@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { emitThreadReply } from "~/server/socket";
 
 type Context = {
-  params: Promise<{ messageId: string }>;
+  params: { messageId: string };
 };
 
 export async function GET(

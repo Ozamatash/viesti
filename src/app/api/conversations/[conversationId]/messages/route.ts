@@ -5,7 +5,7 @@ import { emitNewMessage, getIO } from "~/server/socket";
 import { parseConversationId } from "~/lib/conversation";
 
 type Context = {
-  params: Promise<{ conversationId: string }>;
+  params: { conversationId: string };
 };
 
 export async function GET(

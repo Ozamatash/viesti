@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { emitNewMessage } from "~/server/socket";
 
 type Context = {
-  params: Promise<{ channelId: string }>;
+  params: { channelId: string };
 };
 
 export async function GET(

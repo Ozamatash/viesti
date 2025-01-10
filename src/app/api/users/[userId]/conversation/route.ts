@@ -4,7 +4,7 @@ import { generateConversationId } from "~/lib/conversation";
 import { NextRequest, NextResponse } from "next/server";
 
 type Context = {
-  params: Promise<{ userId: string }>;
+  params: { userId: string };
 };
 
 export async function GET(
