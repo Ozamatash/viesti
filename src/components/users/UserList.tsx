@@ -19,10 +19,10 @@ interface UserListProps {
 export function UserList({ variant = "sheet" }: UserListProps) {
   const { users, isLoading, error, fetchUsers } = useUsers();
   const router = useRouter();
-  const { user: currentUser } = useUser();
+  const { user: currentUser, isLoaded: isAuthLoaded, isSignedIn } = useUser();
 
   const handleMessageClick = async (userId: string) => {
-    if (!currentUser?.id) return;
+    if (!currentUser?.id || !isSignedIn) return;
     
     try {
       // Get or initialize conversation
@@ -39,7 +39,8 @@ export function UserList({ variant = "sheet" }: UserListProps) {
   };
 
   const UserListContent = () => {
-    if (isLoading) {
+    // Show loading state while auth is loading or while fetching users
+    if (isLoading || !isAuthLoaded) {
       return (
         <div className="divide-y divide-border/30">
           {[1, 2, 3].map((i) => (
@@ -55,6 +56,7 @@ export function UserList({ variant = "sheet" }: UserListProps) {
       );
     }
 
+    // Show error state
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center p-4 text-center">
@@ -70,6 +72,11 @@ export function UserList({ variant = "sheet" }: UserListProps) {
           </Button>
         </div>
       );
+    }
+
+    // Don't show anything if not signed in
+    if (!isSignedIn) {
+      return null;
     }
 
     const filteredUsers = users.filter(user => user.id !== currentUser?.id);
@@ -126,6 +133,11 @@ export function UserList({ variant = "sheet" }: UserListProps) {
       </div>
     );
   };
+
+  // Don't render anything if not authenticated
+  if (!isAuthLoaded || !isSignedIn) {
+    return null;
+  }
 
   if (variant === "workspace") {
     return <UserListContent />;
