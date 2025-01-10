@@ -13,13 +13,15 @@ interface PageProps {
   params: Promise<{
     channelId: string;
   }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams?: { [key: string]: string | string[] | undefined };
 }
 
-export default async function ChannelPage(props: PageProps) {
-  const params = await props.params;
+export default async function ChannelPage({
+  params,
+  searchParams = {},
+}: PageProps) {
   const { userId } = await auth();
-  const { channelId: channelIdStr } = params;
+  const { channelId: channelIdStr } = await params;
   const channelId = Number(channelIdStr);
 
   if (!userId) {

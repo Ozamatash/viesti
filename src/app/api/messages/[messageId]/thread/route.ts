@@ -3,9 +3,13 @@ import { db } from "~/server/db";
 import { auth } from "@clerk/nextjs/server";
 import { emitThreadReply } from "~/server/socket";
 
+type Context = {
+  params: Promise<{ messageId: string }>;
+};
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { messageId: string } }
+  context: Context
 ) {
   try {
     const { userId } = await auth();
@@ -13,7 +17,7 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { messageId: messageIdStr } = await params;
+    const { messageId: messageIdStr } = await context.params;
     const messageId = parseInt(messageIdStr);
     if (isNaN(messageId)) {
       return new NextResponse("Invalid message ID", { status: 400 });
@@ -82,7 +86,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { messageId: string } }
+  context: Context
 ) {
   try {
     const { userId } = await auth();
@@ -90,7 +94,7 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { messageId: messageIdStr } = await params;
+    const { messageId: messageIdStr } = await context.params;
     const messageId = parseInt(messageIdStr);
     if (isNaN(messageId)) {
       return new NextResponse("Invalid message ID", { status: 400 });

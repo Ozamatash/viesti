@@ -4,9 +4,13 @@ import { auth } from "@clerk/nextjs/server";
 import { emitNewMessage, getIO } from "~/server/socket";
 import { parseConversationId } from "~/lib/conversation";
 
+type Context = {
+  params: Promise<{ conversationId: string }>;
+};
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { conversationId: string } }
+  context: Context
 ) {
   try {
     const { userId } = await auth();
@@ -14,7 +18,7 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { conversationId } = await params;
+    const { conversationId } = await context.params;
     const url = new URL(request.url);
     const searchTerm = url.searchParams.get('search');
     const skip = Number(url.searchParams.get('skip') || '0');
@@ -105,7 +109,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { conversationId: string } }
+  context: Context
 ) {
   try {
     const { userId } = await auth();
@@ -113,7 +117,7 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { conversationId } = await params;
+    const { conversationId } = await context.params;
     const { content, fileUrls } = await request.json();
 
     if (!content && (!fileUrls || fileUrls.length === 0)) {

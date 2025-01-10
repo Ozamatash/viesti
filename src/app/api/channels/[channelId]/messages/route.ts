@@ -3,9 +3,13 @@ import { db } from "~/server/db";
 import { auth } from "@clerk/nextjs/server";
 import { emitNewMessage } from "~/server/socket";
 
+type Context = {
+  params: Promise<{ channelId: string }>;
+};
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { channelId: string } }
+  context: Context
 ) {
   try {
     const { userId } = await auth();
@@ -13,7 +17,7 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { channelId: channelIdStr } = await params;
+    const { channelId: channelIdStr } = await context.params;
     const channelId = Number(channelIdStr);
     if (isNaN(channelId)) {
       return new NextResponse("Invalid channel ID", { status: 400 });
@@ -113,7 +117,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { channelId: string } }
+  context: Context
 ) {
   try {
     const { userId } = await auth();
@@ -121,7 +125,7 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { channelId: channelIdStr } = await params;
+    const { channelId: channelIdStr } = await context.params;
     const channelId = Number(channelIdStr);
     if (isNaN(channelId)) {
       return new NextResponse("Invalid channel ID", { status: 400 });
