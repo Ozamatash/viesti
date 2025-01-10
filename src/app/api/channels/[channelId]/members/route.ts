@@ -2,14 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "~/server/db";
 import { auth } from "@clerk/nextjs/server";
 
-type Context = {
-  params: { channelId: string };
-};
-
 // Get channel members
 export async function GET(
   request: NextRequest,
-  context: Context
+  { params }: { params: { channelId: string } }
 ) {
   try {
     const { userId } = await auth();
@@ -17,7 +13,7 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { channelId: channelIdStr } = await context.params;
+    const { channelId: channelIdStr } = await params;
     const channelId = Number(channelIdStr);
     if (isNaN(channelId)) {
       return new NextResponse("Invalid channel ID", { status: 400 });
@@ -48,7 +44,7 @@ export async function GET(
 // Add member to channel
 export async function POST(
   request: NextRequest,
-  context: Context
+  { params }: { params: { channelId: string } }
 ) {
   try {
     const { userId: currentUserId } = await auth();
@@ -56,7 +52,7 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { channelId: channelIdStr } = await context.params;
+    const { channelId: channelIdStr } = await params;
     const channelId = Number(channelIdStr);
     if (isNaN(channelId)) {
       return new NextResponse("Invalid channel ID", { status: 400 });
@@ -122,7 +118,7 @@ export async function POST(
 // Remove member from channel
 export async function DELETE(
   request: NextRequest,
-  context: Context
+  { params }: { params: { channelId: string } }
 ) {
   try {
     const { userId: currentUserId } = await auth();
@@ -130,7 +126,7 @@ export async function DELETE(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { channelId: channelIdStr } = await context.params;
+    const { channelId: channelIdStr } = await params;
     const channelId = Number(channelIdStr);
     if (isNaN(channelId)) {
       return new NextResponse("Invalid channel ID", { status: 400 });

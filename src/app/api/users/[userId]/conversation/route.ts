@@ -3,16 +3,12 @@ import { db } from "~/server/db";
 import { generateConversationId } from "~/lib/conversation";
 import { NextRequest, NextResponse } from "next/server";
 
-type Context = {
-  params: { userId: string };
-};
-
 export async function GET(
   request: NextRequest,
-  context: Context
+  { params }: { params: { userId: string } }
 ) {
   try {
-    const { userId: otherUserId } = await context.params;
+    const { userId: otherUserId } = await params;
     const { userId: currentUserId } = await auth();
 
     if (!currentUserId) {

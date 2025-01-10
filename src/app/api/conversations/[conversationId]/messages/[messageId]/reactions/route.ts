@@ -3,13 +3,9 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "~/server/db";
 import { emitReactionAdded } from "~/server/socket";
 
-type Context = {
-  params: { conversationId: string; messageId: string };
-};
-
 export async function POST(
   request: NextRequest,
-  context: Context
+  { params }: { params: { conversationId: string; messageId: string } }
 ) {
   try {
     const { userId } = await auth();
@@ -17,7 +13,7 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { conversationId, messageId: messageIdStr } = await context.params;
+    const { conversationId, messageId: messageIdStr } = await params;
     const messageId = Number(messageIdStr);
 
     if (isNaN(messageId)) {
