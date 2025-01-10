@@ -71,5 +71,11 @@
   "ct3aMetadata": {
     "initVersion": "7.38.1"
   },
-  "packageManager": "npm@9.6.7"
+  "packageManager": "npm@9.6.7",
+  "overrides": {
+    "@emoji-mart/react": {
+      "react": "19.0.0",
+      "react-dom": "19.0.0"
+    }
+  }
 }
