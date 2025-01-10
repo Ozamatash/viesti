@@ -1,11 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "~/server/db";
 import { emitReactionAdded } from "~/server/socket";
 
+type Context = {
+  params: {
+    channelId: string;
+    messageId: string;
+  };
+};
+
 export async function POST(
-  request: Request,
-  context: { params: { channelId: string; messageId: string } }
+  request: NextRequest,
+  { params }: Context
 ) {
   try {
     const { userId } = await auth();
@@ -13,7 +20,6 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const params = await context.params;
     const channelId = Number(params.channelId);
     const messageId = Number(params.messageId);
 
