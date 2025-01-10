@@ -12,9 +12,9 @@ import { parseConversationId } from "~/lib/conversation";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     conversationId: string;
-  };
+  }>;
   searchParams?: { [key: string]: string | string[] | undefined };
 }
 
@@ -28,8 +28,7 @@ export default async function ConversationPage({
     redirect("/sign-in");
   }
 
-  const awaitedParams = await params;
-  const conversationId = awaitedParams.conversationId;
+  const { conversationId } = await params;
   const { userId1, userId2 } = parseConversationId(conversationId);
 
   // Verify that the current user is part of the conversation
