@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSocket } from "../useSocket";
-import { useUser } from "@clerk/nextjs";
 
 interface User {
   id: string;
@@ -17,7 +16,6 @@ export function useUsers() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const socket = useSocket();
-  const { isLoaded: isAuthLoaded, isSignedIn } = useUser();
 
   const fetchUsers = async () => {
     try {
@@ -35,12 +33,10 @@ export function useUsers() {
     }
   };
 
-  // Initial fetch - only when auth is loaded and user is signed in
+  // Initial fetch
   useEffect(() => {
-    if (isAuthLoaded && isSignedIn) {
-      fetchUsers();
-    }
-  }, [isAuthLoaded, isSignedIn]);
+    fetchUsers();
+  }, []);
 
   // Listen for presence updates
   useEffect(() => {
@@ -63,7 +59,7 @@ export function useUsers() {
 
   return {
     users,
-    isLoading: isLoading || !isAuthLoaded,
+    isLoading,
     error,
     fetchUsers,
   };

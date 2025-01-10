@@ -5,9 +5,7 @@ import { MessageList } from "~/components/message/MessageList";
 import { MessageInput } from "~/components/message/MessageInput";
 import { WorkspacePanel } from "~/components/workspace/WorkspacePanel";
 import { ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
-import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
-import { UserList } from "~/components/users/UserList";
 import { parseConversationId } from "~/lib/conversation";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 
@@ -58,31 +56,8 @@ export default async function ConversationPage(props: PageProps) {
         <WorkspacePanel />
       </ResizablePanel>
 
-      {/* User list */}
-      <ResizablePanel 
-        defaultSize={16} 
-        minSize={12} 
-        maxSize={20} 
-        className={cn(
-          "bg-muted/50 dark:bg-muted/80",
-          "transition-all duration-300 ease-in-out",
-          "border-x"
-        )}
-      >
-        <div className="flex h-full flex-col">
-          <div className="flex items-center p-4 border-b bg-muted/30">
-            <h2 className="text-lg font-semibold">Direct Messages</h2>
-          </div>
-          <ScrollArea className="flex-1">
-            <div className="py-2">
-              <UserList variant="workspace" />
-            </div>
-          </ScrollArea>
-        </div>
-      </ResizablePanel>
-
       {/* Main content */}
-      <ResizablePanel defaultSize={80} className="bg-background">
+      <ResizablePanel defaultSize={96} className="bg-background">
         <div className="flex h-full flex-col">
           {/* Conversation header */}
           <div className="border-b p-4 bg-muted/30 flex items-center gap-3">

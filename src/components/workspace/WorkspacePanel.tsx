@@ -1,17 +1,18 @@
 "use client";
 
-import { UserList } from "~/components/users/UserList";
+import { UserButton } from "@clerk/nextjs";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
-import { Users, Hash } from "lucide-react";
+import { Hash } from "lucide-react";
 import { Button } from "~/components/ui/button";
-import { UserProfile, UserButton } from "@clerk/nextjs";
 import { useRouter, usePathname } from "next/navigation";
+import { DMSheet } from "~/components/dm/DMSheet";
 
 export function WorkspacePanel() {
   const router = useRouter();
   const pathname = usePathname();
   const isChannelsPage = pathname?.startsWith("/channels");
+  const isConversationsPage = pathname?.startsWith("/conversations");
 
   return (
     <div className="flex h-full w-16 flex-col bg-muted/50 dark:bg-muted/80 border-r">
@@ -38,8 +39,8 @@ export function WorkspacePanel() {
             <Hash className="h-5 w-5" />
           </Button>
 
-          {/* User list button */}
-          <UserList variant="workspace-button" />
+          {/* DM Sheet */}
+          <DMSheet />
         </div>
       </ScrollArea>
 
