@@ -103,55 +103,24 @@ export async function POST(req: Request) {
     const userId = evt.data.id;
 
     try {
-      // Delete all user's reactions first (due to foreign key constraints)
-      await db.reaction.deleteMany({
-        where: { userId },
-      });
-
-      // Delete all files attached to user's messages
-      await db.file.deleteMany({
-        where: {
-          OR: [
-            { message: { userId } },
-            { directMessage: { senderId: userId } },
-            { directMessage: { receiverId: userId } },
-          ],
-        },
-      });
-
-      // Delete all user's messages and replies
-      await db.message.deleteMany({
-        where: { userId },
-      });
-
-      // Delete all user's direct messages
-      await db.directMessage.deleteMany({
-        where: {
-          OR: [
-            { senderId: userId },
-            { receiverId: userId },
-          ],
-        },
-      });
-
-      // Delete all user's channel memberships
-      await db.channelMembership.deleteMany({
-        where: { userId },
-      });
-
-      // Finally, delete the user
-      await db.user.delete({
+      // Update the user to show as deleted
+      await db.user.update({
         where: { id: userId },
+        data: {
+          username: "Deleted User",
+          profileImageUrl: null,
+          status: "Offline",
+        },
       });
 
-      console.log("Successfully deleted user and all related data");
-      return new Response("User deleted", { status: 200 });
+      console.log("Successfully marked user as deleted");
+      return new Response("User marked as deleted", { status: 200 });
     } catch (err) {
-      console.error("Error deleting user - full error:", err);
+      console.error("Error marking user as deleted - full error:", err);
       if (err instanceof Error) {
         console.error("Error message:", err.message);
       }
-      return new Response("Error deleting user", { status: 500 });
+      return new Response("Error marking user as deleted", { status: 500 });
     }
   }
 
