@@ -102,12 +102,17 @@ export async function POST(req: Request) {
     console.log("User deleted webhook received:", evt.data);
     const userId = evt.data.id;
 
+    if (!userId) {
+      console.error("No user ID provided in deletion webhook");
+      return new Response("No user ID provided", { status: 400 });
+    }
+
     try {
-      // Update the user to show as deleted
+      // Update the user to show as deleted with a unique username
       await db.user.update({
         where: { id: userId },
         data: {
-          username: "Deleted User",
+          username: `Deleted User ${userId.slice(-6)}`, // Add last 6 chars of user ID to make it unique
           profileImageUrl: null,
           status: "Offline",
         },
