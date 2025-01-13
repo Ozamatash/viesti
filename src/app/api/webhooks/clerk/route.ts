@@ -97,5 +97,63 @@ export async function POST(req: Request) {
     }
   }
 
+  // Handle user deletion
+  if (eventType === "user.deleted") {
+    console.log("User deleted webhook received:", evt.data);
+    const userId = evt.data.id;
+
+    try {
+      // Delete all user's reactions first (due to foreign key constraints)
+      await db.reaction.deleteMany({
+        where: { userId },
+      });
+
+      // Delete all files attached to user's messages
+      await db.file.deleteMany({
+        where: {
+          OR: [
+            { message: { userId } },
+            { directMessage: { senderId: userId } },
+            { directMessage: { receiverId: userId } },
+          ],
+        },
+      });
+
+      // Delete all user's messages and replies
+      await db.message.deleteMany({
+        where: { userId },
+      });
+
+      // Delete all user's direct messages
+      await db.directMessage.deleteMany({
+        where: {
+          OR: [
+            { senderId: userId },
+            { receiverId: userId },
+          ],
+        },
+      });
+
+      // Delete all user's channel memberships
+      await db.channelMembership.deleteMany({
+        where: { userId },
+      });
+
+      // Finally, delete the user
+      await db.user.delete({
+        where: { id: userId },
+      });
+
+      console.log("Successfully deleted user and all related data");
+      return new Response("User deleted", { status: 200 });
+    } catch (err) {
+      console.error("Error deleting user - full error:", err);
+      if (err instanceof Error) {
+        console.error("Error message:", err.message);
+      }
+      return new Response("Error deleting user", { status: 500 });
+    }
+  }
+
   return new Response("Webhook received", { status: 200 });
 } 
