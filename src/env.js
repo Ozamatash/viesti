@@ -14,6 +14,12 @@ export const env = createEnv({
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
     DIRECT_URL: z.string().url(),
     WEBHOOK_SECRET: z.string(),
+    // AI-related environment variables
+    OPENAI_API_KEY: z.string().min(1),
+    PINECONE_API_KEY: z.string().min(1),
+    PINECONE_ENVIRONMENT: z.string().min(1),
+    PINECONE_INDEX: z.string().min(1),
+    LANGSMITH_API_KEY: z.string().min(1),
   },
 
   /**
@@ -52,6 +58,12 @@ export const env = createEnv({
     NEXT_PUBLIC_CLERK_SIGN_UP_URL: process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL,
     NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL: process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL,
     NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL: process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL,
+    // AI-related environment variables
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    PINECONE_API_KEY: process.env.PINECONE_API_KEY,
+    PINECONE_ENVIRONMENT: process.env.PINECONE_ENVIRONMENT,
+    PINECONE_INDEX: process.env.PINECONE_INDEX,
+    LANGSMITH_API_KEY: process.env.LANGSMITH_API_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

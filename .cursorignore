@@ -1,0 +1,12 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+package-lock.json
+
+!.notes/
+!.notes/project_overview.md
+!.notes/task_list.md
+!.notes/ai_features_flow.md
+!.notes/journal.md
+!.notes/ai_implementation_process.md
+!.notes/git_workflow.md
+!.notes/ragexample.md
+!.notes/directory_structure.md

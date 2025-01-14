@@ -12,6 +12,7 @@ import {
   ThreadHandlers,
   ThreadError 
 } from "~/types";
+import { ThreadRecap } from "~/components/thread/ThreadRecap";
 
 export function ThreadPanel({
   messageId,
@@ -56,11 +57,19 @@ export function ThreadPanel({
       )}
     >
       <div className="flex flex-col h-full">
-        <div className="flex items-center justify-between p-4 border-b bg-white">
-          <h2 className="text-lg font-semibold">Thread</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+        <div className="flex flex-col p-4 border-b bg-white">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold">Thread</h2>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          {thread && (
+            <ThreadRecap 
+              threadId={String(thread.id)} 
+              messageCount={thread.replies.length + 1} 
+            />
+          )}
         </div>
 
         <div className="flex-1 overflow-hidden bg-white">

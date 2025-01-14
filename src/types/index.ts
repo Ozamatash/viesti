@@ -17,3 +17,6 @@ export * from './socket/events';
 
 // Common types
 export * from './common/props'; 
+
+// AI types
+export * from './ai/ai';

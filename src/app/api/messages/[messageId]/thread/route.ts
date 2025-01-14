@@ -15,6 +15,8 @@ import {
   Reaction,
   UserStatus
 } from "~/types";
+import { Document } from "langchain/document";
+import { addDocumentToStore } from "~/lib/ai/vector-store";
 
 interface ThreadContext {
   params: Promise<{ messageId: string }>;
@@ -255,6 +257,25 @@ export async function POST(
 
     // Transform the reply data to match our API types
     const reply = transformMessage(replyData);
+
+    // Store thread reply in vector store for AI features
+    try {
+      const doc = new Document({
+        pageContent: content?.trim() || "",
+        metadata: {
+          messageId: reply.id.toString(),
+          channelId: reply.channelId.toString(),
+          parentMessageId: messageId.toString(),
+          userId,
+          timestamp: new Date(reply.createdAt),
+          type: "thread_reply" as const
+        }
+      });
+      await addDocumentToStore(doc);
+    } catch (error) {
+      // Log error but don't fail the request
+      console.error("[THREAD_REPLY_POST] Failed to store message in vector store:", error);
+    }
 
     // Emit the thread-reply event to update the UI
     emitThreadReply(parentMessage.channelId, messageId, reply);

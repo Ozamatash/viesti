@@ -14,6 +14,8 @@ import {
   Reaction,
   UserStatus
 } from "~/types";
+import { Document } from "langchain/document";
+import { addDocumentToStore } from "~/lib/ai/vector-store";
 
 interface MessageContext {
   params: Promise<{ channelId: string }>;
@@ -314,6 +316,24 @@ export async function POST(
     });
 
     const message = transformMessage(messageData);
+
+    // Store message in vector store for AI features
+    try {
+      const doc = new Document({
+        pageContent: content?.trim() || "",
+        metadata: {
+          messageId: message.id.toString(),
+          channelId: channelId.toString(),
+          userId,
+          timestamp: new Date(message.createdAt).toISOString(),
+          type: "message" as const
+        }
+      });
+      await addDocumentToStore(doc);
+    } catch (error) {
+      // Log error but don't fail the request
+      console.error("[MESSAGES_POST] Failed to store message in vector store:", error);
+    }
 
     // Emit the new message event
     try {

@@ -82,4 +82,26 @@ export interface PaginationParams {
   limit?: number;
   offset?: number;
   cursor?: string;
+}
+
+/**
+ * Recap requests
+ */
+export interface RecapRequest {
+  /** Type of content to generate recap for */
+  type: "channel" | "thread" | "direct";
+  /** ID of the content (channelId/threadId/conversationId) */
+  id: string;
+  /** Start time for the recap range */
+  startTime?: string;
+  /** End time for the recap range */
+  endTime?: string;
+  /** Maximum number of messages to include */
+  maxMessages?: number;
+  /** Whether to include thread messages in channel recaps */
+  includeThreads?: boolean;
+  /** Whether to include key topics in the recap */
+  includeTopics?: boolean;
+  /** Whether to include participant stats in the recap */
+  includeParticipants?: boolean;
 } 

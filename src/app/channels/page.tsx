@@ -54,9 +54,32 @@ export default async function ChannelsPage() {
 
       {/* Main content */}
       <ResizablePanel defaultSize={80} className="h-full bg-background">
-        <div className="flex h-full flex-col items-center justify-center space-y-4">
+        <div className="flex h-full flex-col items-center justify-center space-y-6 p-6">
           <h1 className="text-2xl font-bold">Welcome to Viesti</h1>
           <p className="text-muted-foreground">Select a channel to start chatting</p>
+          
+          <div className="max-w-2xl rounded-lg border bg-muted/10 p-6">
+            <h2 className="text-lg font-semibold mb-4">Demo Environment</h2>
+            <div className="space-y-4 text-sm text-muted-foreground">
+              <p>
+                This is a demo environment populated with generated test data. The users and messages you see are created by a seeding script to demonstrate the application's functionality.
+              </p>
+              <div>
+                <strong className="text-foreground">Limitations:</strong>
+                <ul className="list-disc pl-6 mt-1">
+                  <li>Direct messages don't work with demo users</li>
+                </ul>
+              </div>
+              <div>
+                <strong className="text-foreground">AI Features:</strong>
+                <ul className="list-disc pl-6 mt-1">
+                  <li>Channel Recap: Located on the top right. Get an AI-generated summary of recent conversations</li>
+                  <li>Thread Recap</li>
+                  <li>DM Recap</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       </ResizablePanel>
     </ResizablePanelGroup>

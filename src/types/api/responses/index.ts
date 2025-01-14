@@ -61,4 +61,39 @@ export interface GetConversationResponse extends ApiResponse<{
   conversationId: string;
   messages: DirectMessage[];
   otherUser: User;
+}> {}
+
+/**
+ * Recap responses
+ */
+export interface RecapResponse extends ApiResponse<{
+  /** Generated summary of the content */
+  summary: string;
+  /** Number of messages included in the recap */
+  messageCount: number;
+  /** Time range of the recap */
+  timeRange: {
+    start: string;
+    end: string;
+  };
+  /** Key topics discussed (if requested) */
+  topics?: string[];
+  /** Participant statistics (if requested) */
+  participants?: {
+    total: number;
+    active: number;
+    topContributors: {
+      userId: string;
+      username: string;
+      messageCount: number;
+    }[];
+  };
+  /** Thread statistics (for channel recaps) */
+  threads?: {
+    total: number;
+    active: number;
+    resolved: number;
+  };
+  /** Timestamp when the recap was generated */
+  generatedAt: string;
 }> {} 

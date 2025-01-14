@@ -8,6 +8,8 @@ import { WorkspacePanel } from "~/components/workspace/WorkspacePanel";
 import { ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { cn } from "~/lib/utils";
+import { ChannelHeader } from "~/components/channel/ChannelHeader";
+import { Channel } from "~/types";
 
 interface PageProps {
   params: Promise<{
@@ -31,23 +33,29 @@ export default async function ChannelPage(props: PageProps) {
   }
 
   // Fetch channel details
-  const channel = await db.channel.findUnique({
+  const channelData = await db.channel.findUnique({
     where: { id: channelId },
     include: {
       members: true,
     },
   });
 
-  if (!channel) {
+  if (!channelData) {
     redirect("/channels");
   }
 
   // Check if user is a member
-  const isMember = channel.members.some((member: { userId: string }) => member.userId === userId);
+  const isMember = channelData.members.some((member: { userId: string }) => member.userId === userId);
 
-  if (!isMember && !channel.isPublic) {
+  if (!isMember && !channelData.isPublic) {
     redirect("/channels");
   }
+
+  // Convert to Channel type
+  const channel: Channel = {
+    ...channelData,
+    createdAt: channelData.createdAt.toISOString()
+  };
 
   return (
     <ResizablePanelGroup
@@ -91,13 +99,7 @@ export default async function ChannelPage(props: PageProps) {
       {/* Main content */}
       <ResizablePanel defaultSize={80} className="h-full bg-background">
         <div className="flex h-full flex-col">
-          {/* Channel header */}
-          <div className="flex-shrink-0 border-b p-4 bg-muted/30">
-            <h1 className="text-lg font-semibold">#{channel.name}</h1>
-            {channel.description && (
-              <p className="text-sm text-muted-foreground">{channel.description}</p>
-            )}
-          </div>
+          <ChannelHeader channel={channel} />
 
           {/* Messages */}
           <div className="flex-1 overflow-hidden">
