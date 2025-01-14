@@ -13,18 +13,23 @@ import { MessageHoverActions } from "./MessageHoverActions";
 import { useUser } from "@clerk/nextjs";
 import { ThreadPanel } from "./ThreadPanel";
 import { useThread } from "~/hooks/messages/useThread";
-
-interface MessageListProps {
-  channelId?: number;
-  conversationId?: string;
-  messageId?: number;  // For thread messages
-  isThread?: boolean;
-}
+import { 
+  Message,
+  isChannelMessage,
+  AddReactionRequest,
+  MessageListProps,
+  MessageListScrollRef,
+  MessageEventHandlers,
+  MessageSearchState,
+  MessageScrollHandlers
+} from "~/types";
 
 export function MessageList({ channelId, conversationId, messageId, isThread }: MessageListProps) {
   const { user } = useUser();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<MessageListScrollRef>(null);
   const [threadOpen, setThreadOpen] = useState<number | null>(null);
+  
+  // Message search state
   const {
     messages,
     searchResults,
@@ -45,33 +50,52 @@ export function MessageList({ channelId, conversationId, messageId, isThread }: 
     ? [thread, ...thread.replies] 
     : messages;
 
-  const handleAddReaction = async (messageId: number, emoji: string) => {
-    if (!user) return;
+  // Event handlers
+  const eventHandlers: MessageEventHandlers = {
+    onReactionAdd: async (messageId: number, emoji: string) => {
+      if (!user) return;
 
-    try {
-      const endpoint = channelId
-        ? `/api/channels/${channelId}/messages/${messageId}/reactions`
-        : `/api/conversations/${conversationId}/messages/${messageId}/reactions`;
+      try {
+        const endpoint = channelId
+          ? `/api/channels/${channelId}/messages/${messageId}/reactions`
+          : `/api/conversations/${conversationId}/messages/${messageId}/reactions`;
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ emoji }),
-      });
+        const request: AddReactionRequest = { emoji };
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(request),
+        });
 
-      if (!response.ok) {
-        throw new Error("Failed to add reaction");
+        if (!response.ok) {
+          throw new Error("Failed to add reaction");
+        }
+      } catch (error) {
+        console.error("Error adding reaction:", error);
       }
-    } catch (error) {
-      console.error("Error adding reaction:", error);
-    }
+    },
+    onThreadOpen: (messageId: number) => setThreadOpen(messageId),
+    onSearchSelect: (messageId: number) => {
+      scrollToMessage(messageId);
+      handleSearch("");
+    },
+    onSearchClear: () => handleSearch("")
   };
 
-  const scrollToBottom = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  // Scroll handlers
+  const scrollHandlers: MessageScrollHandlers = {
+    scrollToMessage,
+    scrollToBottom: () => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    },
+    isNearBottom: (threshold = 100) => {
+      const scrollEl = scrollRef.current;
+      if (!scrollEl) return false;
+      return scrollEl.scrollHeight - scrollEl.scrollTop <= scrollEl.clientHeight + threshold;
     }
   };
 
@@ -82,28 +106,22 @@ export function MessageList({ channelId, conversationId, messageId, isThread }: 
     const scrollEl = scrollRef.current;
     if (!scrollEl) return;
 
-    // Get the previous messages length from a ref to detect new messages
-    const prevMessagesLength = (scrollEl as any)._prevMessagesLength || 0;
-    (scrollEl as any)._prevMessagesLength = displayMessages.length;
+    const prevMessagesLength = scrollEl._prevMessagesLength || 0;
+    scrollEl._prevMessagesLength = displayMessages.length;
 
     // If this is the initial load or we have new messages
     if (prevMessagesLength === 0 || displayMessages.length > prevMessagesLength) {
       // On initial load, always scroll to bottom
       if (prevMessagesLength === 0) {
-        scrollToBottom();
+        scrollHandlers.scrollToBottom();
       } else {
         // For new messages, only scroll if we're near the bottom
-        const isAtBottom = scrollEl.scrollHeight - scrollEl.scrollTop <= scrollEl.clientHeight + 100;
-        if (isAtBottom) {
-          scrollToBottom();
+        if (scrollHandlers.isNearBottom()) {
+          scrollHandlers.scrollToBottom();
         }
       }
     }
   }, [displayMessages.length, searchTerm, isLoadingMore]);
-
-  const handleThreadClick = (messageId: number) => {
-    setThreadOpen(messageId);
-  };
 
   return (
     <div className="flex flex-col h-full">
@@ -129,10 +147,7 @@ export function MessageList({ channelId, conversationId, messageId, isThread }: 
                 searchResults.map((message) => (
                   <button
                     key={message.id}
-                    onClick={() => {
-                      scrollToMessage(message.id);
-                      handleSearch(""); // Clear search after clicking
-                    }}
+                    onClick={() => eventHandlers.onSearchSelect(message.id)}
                     className={cn(
                       "w-full text-left px-4 py-3",
                       "hover:bg-muted focus:bg-muted",
@@ -192,11 +207,11 @@ export function MessageList({ channelId, conversationId, messageId, isThread }: 
                 "hover:bg-muted/50"
               )}
             >
-              {!isThread && (
+              {!isThread && isChannelMessage(message) && (
                 <MessageHoverActions
                   messageId={message.id}
-                  onAddReaction={(emoji) => handleAddReaction(message.id, emoji)}
-                  onThreadClick={() => handleThreadClick(message.id)}
+                  onAddReaction={(emoji) => eventHandlers.onReactionAdd(message.id, emoji)}
+                  onThreadClick={() => eventHandlers.onThreadOpen(message.id)}
                   replyCount={message._count?.replies || 0}
                 />
               )}
@@ -245,34 +260,19 @@ export function MessageList({ channelId, conversationId, messageId, isThread }: 
                       {message.reactions.map((reaction) => (
                         <button
                           key={reaction.id}
-                          onClick={() => handleAddReaction(message.id, reaction.emoji)}
+                          onClick={() => eventHandlers.onReactionAdd(message.id, reaction.emoji)}
                           className={cn(
                             "inline-flex items-center gap-1 text-xs",
                             "bg-muted/50 hover:bg-muted",
-                            "rounded-full px-2 py-0.5",
-                            "transition-colors",
-                            "cursor-pointer"
+                            "px-2 py-1 rounded-full"
                           )}
                         >
                           <span>{reaction.emoji}</span>
-                          <span className="text-muted-foreground">{reaction.user.username}</span>
+                          <span className="text-muted-foreground">
+                            {reaction.user.username}
+                          </span>
                         </button>
                       ))}
-                    </div>
-                  )}
-
-                  {/* Thread Indicator */}
-                  {!isThread && (message._count?.replies ?? 0) > 0 && (
-                    <div className="mt-1.5 -ml-2">
-                      <Button
-                        onClick={() => handleThreadClick(message.id)}
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs text-muted-foreground"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        {message._count?.replies} {(message._count?.replies ?? 0) === 1 ? 'reply' : 'replies'}
-                      </Button>
                     </div>
                   )}
                 </div>
@@ -282,6 +282,7 @@ export function MessageList({ channelId, conversationId, messageId, isThread }: 
         </div>
       </div>
 
+      {/* Thread Panel */}
       {threadOpen && (
         <ThreadPanel
           messageId={threadOpen}

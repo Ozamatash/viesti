@@ -9,6 +9,7 @@ import { Hash, Plus, RefreshCcw } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { Skeleton } from "~/components/ui/skeleton";
 import { useChannels } from "~/hooks/channels/useChannels";
+import { Channel } from "~/types";
 
 export function ChannelList() {
   const params = useParams();
@@ -41,6 +42,10 @@ export function ChannelList() {
       </div>
     );
   }
+
+  const handleCreateChannel = (channel: Channel) => {
+    addChannel(channel);
+  };
 
   return (
     <>
@@ -94,7 +99,7 @@ export function ChannelList() {
       <CreateChannelModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onCreateChannel={addChannel}
+        onCreateChannel={handleCreateChannel}
       />
     </>
   );

@@ -13,15 +13,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { cn } from "~/lib/utils";
-
-interface Channel {
-  id: number;
-  name: string;
-  description: string | null;
-  _count: {
-    members: number;
-  };
-}
+import { Channel, CreateChannelRequest, CreateChannelResponse } from "~/types";
 
 interface CreateChannelModalProps {
   isOpen: boolean;
@@ -43,20 +35,26 @@ export function CreateChannelModal({
     setIsLoading(true);
 
     try {
+      const request: CreateChannelRequest = {
+        name,
+        description: description || undefined,
+        isPrivate: false
+      };
+
       const res = await fetch("/api/channels", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify(request),
       });
 
       if (!res.ok) {
         throw new Error("Failed to create channel");
       }
 
-      const channel = await res.json();
-      onCreateChannel(channel);
+      const { data }: CreateChannelResponse = await res.json();
+      onCreateChannel(data);
       onClose();
       setName("");
       setDescription("");

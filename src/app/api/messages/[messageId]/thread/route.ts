@@ -2,29 +2,83 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "~/server/db";
 import { auth } from "@clerk/nextjs/server";
 import { emitThreadReply } from "~/server/socket";
+import { 
+  ApiError,
+  ErrorCode,
+  HttpStatus,
+  GetThreadResponse,
+  SendThreadReplyRequest,
+  SendMessageResponse,
+  Thread,
+  ChannelMessage,
+  FileAttachment,
+  Reaction,
+  UserStatus
+} from "~/types";
 
-type Context = {
+interface ThreadContext {
   params: Promise<{ messageId: string }>;
-};
+}
+
+// Helper to transform DB message to our API type
+function transformMessage(dbMessage: any): ChannelMessage {
+  return {
+    id: dbMessage.id,
+    content: dbMessage.content,
+    createdAt: dbMessage.createdAt.toISOString(),
+    channelId: dbMessage.channelId,
+    parentMessageId: dbMessage.parentMessageId || undefined,
+    user: {
+      id: dbMessage.user.id,
+      username: dbMessage.user.username,
+      profileImageUrl: dbMessage.user.profileImageUrl || undefined,
+      status: UserStatus.Online
+    },
+    files: dbMessage.files.map((file: any): FileAttachment => ({
+      id: file.id,
+      url: file.url,
+      filename: file.filename,
+      filetype: file.filetype
+    })),
+    reactions: dbMessage.reactions.map((reaction: any): Reaction => ({
+      id: reaction.id,
+      emoji: reaction.emoji,
+      user: {
+        id: reaction.user.id,
+        username: reaction.user.username
+      }
+    })),
+    _count: dbMessage._count
+  };
+}
 
 export async function GET(
   request: NextRequest,
-  context: Context
+  context: ThreadContext
 ) {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      const error: ApiError = {
+        code: ErrorCode.AUTHENTICATION_ERROR,
+        message: "Authentication required",
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.UNAUTHORIZED });
     }
 
     const { messageId: messageIdStr } = await context.params;
     const messageId = parseInt(messageIdStr);
     if (isNaN(messageId)) {
-      return new NextResponse("Invalid message ID", { status: 400 });
+      const error: ApiError = {
+        code: ErrorCode.VALIDATION_ERROR,
+        message: "Invalid message ID",
+        details: { field: "messageId", value: messageIdStr }
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
     }
 
     // Get the parent message and its replies
-    const thread = await db.message.findUnique({
+    const threadData = await db.message.findUnique({
       where: { id: messageId },
       include: {
         user: {
@@ -73,31 +127,64 @@ export async function GET(
       },
     });
 
-    if (!thread) {
-      return new NextResponse("Thread not found", { status: 404 });
+    if (!threadData) {
+      const error: ApiError = {
+        code: ErrorCode.RESOURCE_NOT_FOUND,
+        message: "Thread not found",
+        details: { messageId }
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.NOT_FOUND });
     }
 
-    return NextResponse.json(thread);
+    // Transform the thread data to match our API types
+    const thread: Thread = {
+      ...transformMessage(threadData),
+      replies: threadData.replies.map(reply => transformMessage(reply))
+    };
+
+    const response: GetThreadResponse = {
+      data: thread,
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID()
+      }
+    };
+
+    return NextResponse.json(response, { status: HttpStatus.OK });
   } catch (error) {
     console.error("[THREAD_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    const apiError: ApiError = {
+      code: ErrorCode.INTERNAL_ERROR,
+      message: "Failed to fetch thread",
+      stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+    };
+    return NextResponse.json({ error: apiError }, { status: HttpStatus.INTERNAL_SERVER_ERROR });
   }
 }
 
 export async function POST(
   request: NextRequest,
-  context: Context
+  context: ThreadContext
 ) {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      const error: ApiError = {
+        code: ErrorCode.AUTHENTICATION_ERROR,
+        message: "Authentication required",
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.UNAUTHORIZED });
     }
 
     const { messageId: messageIdStr } = await context.params;
     const messageId = parseInt(messageIdStr);
     if (isNaN(messageId)) {
-      return new NextResponse("Invalid message ID", { status: 400 });
+      const error: ApiError = {
+        code: ErrorCode.VALIDATION_ERROR,
+        message: "Invalid message ID",
+        details: { field: "messageId", value: messageIdStr }
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
     }
 
     // Get the parent message first to get its channelId
@@ -107,23 +194,42 @@ export async function POST(
     });
 
     if (!parentMessage) {
-      return new NextResponse("Parent message not found", { status: 404 });
+      const error: ApiError = {
+        code: ErrorCode.RESOURCE_NOT_FOUND,
+        message: "Parent message not found",
+        details: { messageId }
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.NOT_FOUND });
     }
 
-    const json = await request.json();
-    const { content } = json;
+    const body: SendThreadReplyRequest = await request.json();
+    const { content, files } = body;
 
-    if (!content || typeof content !== "string") {
-      return new NextResponse("Invalid content", { status: 400 });
+    if (!content?.trim()) {
+      const error: ApiError = {
+        code: ErrorCode.VALIDATION_ERROR,
+        message: "Message content is required",
+        details: { field: "content" }
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
     }
 
     // Create the thread reply
-    const reply = await db.message.create({
+    const replyData = await db.message.create({
       data: {
-        content,
+        content: content.trim(),
         userId,
         parentMessageId: messageId,
         channelId: parentMessage.channelId,
+        files: files ? {
+          createMany: {
+            data: files.map(file => ({
+              url: file.url,
+              filename: file.filename,
+              filetype: file.filetype
+            }))
+          }
+        } : undefined
       },
       include: {
         user: {
@@ -147,16 +253,28 @@ export async function POST(
       },
     });
 
-    // Emit the thread-reply event to update the UI
-    // Make sure to emit to the channel room
-    emitThreadReply(parentMessage.channelId, messageId, {
-      ...reply,
-      channelId: parentMessage.channelId,
-    });
+    // Transform the reply data to match our API types
+    const reply = transformMessage(replyData);
 
-    return NextResponse.json(reply);
+    // Emit the thread-reply event to update the UI
+    emitThreadReply(parentMessage.channelId, messageId, reply);
+
+    const response: SendMessageResponse = {
+      data: reply,
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID()
+      }
+    };
+
+    return NextResponse.json(response, { status: HttpStatus.CREATED });
   } catch (error) {
     console.error("[THREAD_POST]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    const apiError: ApiError = {
+      code: ErrorCode.INTERNAL_ERROR,
+      message: "Failed to create thread reply",
+      stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+    };
+    return NextResponse.json({ error: apiError }, { status: HttpStatus.INTERNAL_SERVER_ERROR });
   }
 } 

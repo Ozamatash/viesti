@@ -2,19 +2,35 @@
 
 import { useState } from "react";
 import { useMessages } from "./useMessages";
+import { KeyedMutator } from "swr";
+import { 
+  Message, 
+  MessageContextProps, 
+  GetChannelMessagesResponse, 
+  GetDirectMessagesResponse,
+  MessageSearchState,
+  MessageSearchResult,
+} from "~/types";
 
-interface UseMessageSearchProps {
-  channelId?: number;
-  conversationId?: string;
+type SearchProps = Omit<MessageContextProps, 'searchTerm'>;
+
+interface SearchHookResult extends MessageSearchState {
+  messages: Message[];
+  error: string | null;
+  mutate: KeyedMutator<any>;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  loadMore: () => Promise<void>;
+  scrollToMessage: (messageId: number) => void;
 }
 
 export function useMessageSearch({
   channelId,
   conversationId,
-}: UseMessageSearchProps) {
+}: SearchProps): SearchHookResult {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<MessageSearchResult[]>([]);
   
   // Regular messages without search
   const { 
@@ -49,9 +65,17 @@ export function useMessageSearch({
       
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to search messages');
-      const data = await res.json();
+      const response: GetChannelMessagesResponse | GetDirectMessagesResponse = await res.json();
       
-      setSearchResults(Array.isArray(data.messages) ? data.messages : data.messages || []);
+      setSearchResults(response.data.data.map(message => ({
+        id: message.id,
+        content: message.content,
+        createdAt: message.createdAt,
+        user: {
+          username: message.user.username,
+          profileImageUrl: message.user.profileImageUrl
+        }
+      })));
     } catch (error) {
       console.error("Error searching messages:", error);
     } finally {

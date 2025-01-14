@@ -1,15 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-
-interface Channel {
-  id: number;
-  name: string;
-  description: string | null;
-  _count: {
-    members: number;
-  };
-}
+import { Channel, GetChannelsResponse } from "~/types";
 
 export function useChannels() {
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -22,7 +14,7 @@ export function useChannels() {
       setIsLoading(true);
       const res = await fetch("/api/channels");
       if (!res.ok) throw new Error('Failed to fetch channels');
-      const data = await res.json();
+      const { data }: GetChannelsResponse = await res.json();
       setChannels(data);
     } catch (error) {
       console.error("Error fetching channels:", error);

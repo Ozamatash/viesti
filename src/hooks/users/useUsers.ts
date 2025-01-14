@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useSocket } from "../useSocket";
+import { User, UserStatus, UserPresenceEvent, GetUsersResponse } from "~/types";
 
-interface User {
-  id: string;
-  username: string;
-  profileImageUrl?: string;
-  status: "Online" | "Offline";
-  lastSeen?: string;
+interface UsersHookResult {
+  users: User[];
+  isLoading: boolean;
+  error: string | null;
+  fetchUsers: () => Promise<void>;
 }
 
-export function useUsers() {
+export function useUsers(): UsersHookResult {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,8 +23,8 @@ export function useUsers() {
       setIsLoading(true);
       const response = await fetch("/api/users");
       if (!response.ok) throw new Error('Failed to fetch users');
-      const data = await response.json();
-      setUsers(data);
+      const { data }: GetUsersResponse = await response.json();
+      setUsers(data.data);
     } catch (error) {
       console.error("Failed to fetch users:", error);
       setError("Failed to load users. Please try again.");
@@ -42,10 +42,10 @@ export function useUsers() {
   useEffect(() => {
     if (!socket) return;
 
-    const handleUserPresence = (data: { userId: string; status: "Online" | "Offline" }) => {
+    const handleUserPresence = (event: UserPresenceEvent) => {
       setUsers(prevUsers => 
         prevUsers.map(user => 
-          user.id === data.userId ? { ...user, status: data.status } : user
+          user.id === event.userId ? { ...user, status: event.status } : user
         )
       );
     };

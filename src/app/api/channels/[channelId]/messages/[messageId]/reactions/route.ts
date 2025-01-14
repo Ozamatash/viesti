@@ -2,19 +2,44 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "~/server/db";
 import { emitReactionAdded } from "~/server/socket";
+import { 
+  ApiError,
+  ErrorCode,
+  HttpStatus,
+  AddReactionRequest,
+  AddReactionResponse,
+  RemoveReactionResponse,
+  Reaction
+} from "~/types";
 
-type Context = {
+interface ReactionContext {
   params: Promise<{ channelId: string; messageId: string }>;
-};
+}
+
+// Helper to transform DB reaction to our API type
+function transformReaction(dbReaction: any): Reaction {
+  return {
+    id: dbReaction.id,
+    emoji: dbReaction.emoji,
+    user: {
+      id: dbReaction.user.id,
+      username: dbReaction.user.username
+    }
+  };
+}
 
 export async function POST(
   request: NextRequest,
-  context: Context
+  context: ReactionContext
 ) {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      const error: ApiError = {
+        code: ErrorCode.AUTHENTICATION_ERROR,
+        message: "Authentication required",
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.UNAUTHORIZED });
     }
 
     const { channelId: channelIdStr, messageId: messageIdStr } = await context.params;
@@ -22,12 +47,24 @@ export async function POST(
     const messageId = Number(messageIdStr);
 
     if (isNaN(channelId) || isNaN(messageId)) {
-      return new NextResponse("Invalid channel or message ID", { status: 400 });
+      const error: ApiError = {
+        code: ErrorCode.VALIDATION_ERROR,
+        message: "Invalid channel or message ID",
+        details: { channelId: channelIdStr, messageId: messageIdStr }
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
     }
 
-    const { emoji } = await request.json();
-    if (!emoji) {
-      return new NextResponse("Emoji is required", { status: 400 });
+    const body: AddReactionRequest = await request.json();
+    const { emoji } = body;
+
+    if (!emoji?.trim()) {
+      const error: ApiError = {
+        code: ErrorCode.VALIDATION_ERROR,
+        message: "Emoji is required",
+        details: { field: "emoji" }
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
     }
 
     // Check if user is a member of the channel
@@ -41,7 +78,12 @@ export async function POST(
     });
 
     if (!membership) {
-      return new NextResponse("Not a member of this channel", { status: 403 });
+      const error: ApiError = {
+        code: ErrorCode.AUTHORIZATION_ERROR,
+        message: "Not a member of this channel",
+        details: { channelId }
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.FORBIDDEN });
     }
 
     // Check if user has already reacted with this emoji
@@ -49,7 +91,7 @@ export async function POST(
       where: {
         messageId,
         userId,
-        emoji,
+        emoji: emoji.trim(),
       },
     });
 
@@ -68,13 +110,21 @@ export async function POST(
         console.error("[REACTION_POST] Error emitting reaction removal:", error);
       }
 
-      return NextResponse.json({ removed: true, id: existingReaction.id });
+      const response: RemoveReactionResponse = {
+        data: { success: true },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: crypto.randomUUID()
+        }
+      };
+
+      return NextResponse.json(response, { status: HttpStatus.OK });
     }
 
     // Add new reaction
-    const reaction = await db.reaction.create({
+    const reactionData = await db.reaction.create({
       data: {
-        emoji,
+        emoji: emoji.trim(),
         userId,
         messageId,
       },
@@ -88,6 +138,8 @@ export async function POST(
       },
     });
 
+    const reaction = transformReaction(reactionData);
+
     // Emit socket event
     try {
       emitReactionAdded(channelId, messageId, reaction);
@@ -95,9 +147,22 @@ export async function POST(
       console.error("[REACTION_POST] Error emitting reaction:", error);
     }
 
-    return NextResponse.json(reaction);
+    const response: AddReactionResponse = {
+      data: reaction,
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID()
+      }
+    };
+
+    return NextResponse.json(response, { status: HttpStatus.CREATED });
   } catch (error) {
     console.error("[REACTION_POST]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    const apiError: ApiError = {
+      code: ErrorCode.INTERNAL_ERROR,
+      message: "Failed to handle reaction",
+      stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+    };
+    return NextResponse.json({ error: apiError }, { status: HttpStatus.INTERNAL_SERVER_ERROR });
   }
 } 

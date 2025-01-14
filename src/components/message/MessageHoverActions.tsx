@@ -10,13 +10,7 @@ import {
 } from "~/components/ui/popover";
 import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
-
-interface MessageHoverActionsProps {
-  messageId: number;
-  onAddReaction: (emoji: string) => void;
-  onThreadClick?: () => void;
-  replyCount?: number;
-}
+import { MessageHoverActionsProps, EmojiPickerEvent } from "~/types";
 
 export function MessageHoverActions({
   messageId,
@@ -60,7 +54,7 @@ export function MessageHoverActions({
           >
             <Picker
               data={data}
-              onEmojiSelect={(emoji: any) => {
+              onEmojiSelect={(emoji: EmojiPickerEvent) => {
                 onAddReaction(emoji.native);
                 setOpen(false);
               }}

@@ -6,26 +6,45 @@ import { MessageInput } from "./MessageInput";
 import { useThread } from "~/hooks/messages/useThread";
 import { MessageList } from "./MessageList";
 import { cn } from "~/lib/utils";
-
-interface ThreadPanelProps {
-  messageId: number;
-  isOpen: boolean;
-  onClose: () => void;
-}
+import { 
+  ThreadPanelProps, 
+  ThreadState, 
+  ThreadHandlers,
+  ThreadError 
+} from "~/types";
 
 export function ThreadPanel({
   messageId,
   isOpen,
   onClose,
 }: ThreadPanelProps) {
-  const { thread, isLoading, error, addReply } = useThread(messageId);
+  const { 
+    // Thread state
+    thread, 
+    isLoading, 
+    error,
+    // Thread handlers
+    addReply 
+  } = useThread(messageId);
 
-  const handleSendReply = async (content: string) => {
+  const handleSendReply: ThreadHandlers['handleSendReply'] = async (request) => {
     try {
-      await addReply(content);
-    } catch (error) {
-      console.error("Failed to send reply:", error);
+      await addReply(request.content);
+    } catch (err) {
+      const error = err as ThreadError;
+      console.error("Failed to send reply:", {
+        message: error.message,
+        code: error.code,
+        statusCode: error.statusCode,
+        details: error.details
+      });
     }
+  };
+
+  const threadState: ThreadState = {
+    thread,
+    isLoading,
+    error
   };
 
   return (
@@ -45,15 +64,15 @@ export function ThreadPanel({
         </div>
 
         <div className="flex-1 overflow-hidden bg-white">
-          {isLoading ? (
+          {threadState.isLoading ? (
             <div className="p-4 text-center text-muted-foreground">
               Loading thread...
             </div>
-          ) : error ? (
+          ) : threadState.error ? (
             <div className="p-4 text-center text-destructive">
-              {error}
+              {threadState.error}
             </div>
-          ) : thread ? (
+          ) : threadState.thread ? (
             <MessageList messageId={messageId} isThread />
           ) : null}
         </div>

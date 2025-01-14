@@ -1,6 +1,15 @@
 import { Server as NetServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { db } from "./db";
+import { 
+  SocketEventName, 
+  UserStatus, 
+  ChannelMessage, 
+  DirectMessage,
+  UserPresenceEvent,
+  ReactionEvent,
+  ThreadReplyEvent
+} from "~/types";
 
 export const initializeSocket = (httpServer: NetServer) => {
   const io = new SocketIOServer(httpServer, {
@@ -20,11 +29,16 @@ export const initializeSocket = (httpServer: NetServer) => {
     await db.user.update({
       where: { id: userId as string },
       data: { 
-        status: "Online",
+        status: UserStatus.Online,
         lastSeen: new Date(),
       },
     });
-    io.emit("user-presence-changed", { userId, status: "Online" });
+    
+    const presenceEvent: UserPresenceEvent = { 
+      userId, 
+      status: UserStatus.Online 
+    };
+    io.emit(SocketEventName.UserPresenceChanged, presenceEvent);
 
     // Clear any existing timeout for this user
     if (timeouts.has(userId as string)) {
@@ -33,30 +47,30 @@ export const initializeSocket = (httpServer: NetServer) => {
     }
 
     // Handle presence updates
-    socket.on("user-presence-changed", async ({ userId, status }) => {
+    socket.on(SocketEventName.UserPresenceChanged, async (event: UserPresenceEvent) => {
       await db.user.update({
-        where: { id: userId as string },
+        where: { id: event.userId },
         data: { 
-          status: status,
+          status: event.status,
           lastSeen: new Date(),
         },
       });
-      io.emit("user-presence-changed", { userId, status });
+      io.emit(SocketEventName.UserPresenceChanged, event);
     });
 
-    socket.on("join-channel", (channelId: string) => {
+    socket.on(SocketEventName.JoinChannel, (channelId: number) => {
       socket.join(`channel:${channelId}`);
     });
 
-    socket.on("leave-channel", (channelId: string) => {
+    socket.on(SocketEventName.LeaveChannel, (channelId: number) => {
       socket.leave(`channel:${channelId}`);
     });
 
-    socket.on("join-conversation", (conversationId: string) => {
+    socket.on(SocketEventName.JoinConversation, (conversationId: string) => {
       socket.join(`conversation:${conversationId}`);
     });
 
-    socket.on("leave-conversation", (conversationId: string) => {
+    socket.on(SocketEventName.LeaveConversation, (conversationId: string) => {
       socket.leave(`conversation:${conversationId}`);
     });
 
@@ -80,11 +94,16 @@ export const initializeSocket = (httpServer: NetServer) => {
           await db.user.update({
             where: { id: userId as string },
             data: { 
-              status: "Offline",
+              status: UserStatus.Offline,
               lastSeen: new Date(),
             },
           });
-          io.emit("user-presence-changed", { userId, status: "Offline" });
+          
+          const offlineEvent: UserPresenceEvent = {
+            userId,
+            status: UserStatus.Offline
+          };
+          io.emit(SocketEventName.UserPresenceChanged, offlineEvent);
         }
         timeouts.delete(userId as string);
       }, 1 * 60 * 1000); // 1 minute
@@ -105,24 +124,24 @@ export const getIO = () => {
   return io;
 };
 
-export const emitNewMessage = (channelId: number, message: any) => {
+export const emitNewMessage = (channelId: number, message: ChannelMessage) => {
   const socketServer = getIO();
   if (!socketServer) return;
   
-  socketServer.to(`channel:${channelId}`).emit("new-message", message);
+  socketServer.to(`channel:${channelId}`).emit(SocketEventName.NewMessage, message);
 };
 
-export const emitNewDirectMessage = (conversationId: string, message: any) => {
+export const emitNewDirectMessage = (conversationId: string, message: DirectMessage) => {
   const socketServer = getIO();
   if (!socketServer) return;
   
-  socketServer.to(`conversation:${conversationId}`).emit("new-dm-message", message);
+  socketServer.to(`conversation:${conversationId}`).emit(SocketEventName.NewDirectMessage, message);
 };
 
 export function emitReactionAdded(
   channelOrConversationId: string | number,
   messageId: number,
-  reaction: any
+  reaction: ReactionEvent['reaction']
 ) {
   const socketServer = getIO();
   if (!socketServer) return;
@@ -132,18 +151,20 @@ export function emitReactionAdded(
     ? `channel:${channelOrConversationId}`
     : `conversation:${channelOrConversationId}`;
 
-  socketServer.to(roomId).emit("reaction-added", {
+  const event: ReactionEvent = {
     messageId,
     reaction,
-  });
+  };
+  socketServer.to(roomId).emit(SocketEventName.ReactionAdded, event);
 }
 
-export function emitThreadReply(channelId: number, messageId: number, reply: any) {
+export function emitThreadReply(channelId: number, messageId: number, reply: ChannelMessage) {
   const socketServer = getIO();
   if (!socketServer) return;
   
-  socketServer.to(`channel:${channelId}`).emit("thread-reply", {
+  const event: ThreadReplyEvent = {
     messageId,
     reply,
-  });
+  };
+  socketServer.to(`channel:${channelId}`).emit(SocketEventName.ThreadReply, event);
 } 

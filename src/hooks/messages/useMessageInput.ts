@@ -3,14 +3,21 @@
 import { useState, useRef, FormEvent, ChangeEvent } from "react";
 import { useUser } from "@clerk/nextjs";
 import { uploadFile } from "~/lib/supabase-client";
+import { 
+  SendMessageRequest, 
+  MessageInputProps,
+  MessageInputHookResult
+} from "~/types";
 
-interface UseMessageInputProps {
-  channelId?: number;
-  conversationId?: string;
-  onMessageSent?: () => void;
+interface UseMessageInputProps extends Pick<MessageInputProps, 'channelId' | 'conversationId' | 'onMessageSent'> {}
+
+interface UploadedFile {
+  url: string;
+  filename: string;
+  filetype: string;
 }
 
-export function useMessageInput({ channelId, conversationId, onMessageSent }: UseMessageInputProps) {
+export function useMessageInput({ channelId, conversationId, onMessageSent }: UseMessageInputProps): MessageInputHookResult {
   const [content, setContent] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -25,7 +32,7 @@ export function useMessageInput({ channelId, conversationId, onMessageSent }: Us
 
     try {
       setIsSending(true);
-      const fileUrls: string[] = [];
+      const uploadedFiles: UploadedFile[] = [];
 
       // Upload files if any
       if (files.length > 0) {
@@ -33,7 +40,11 @@ export function useMessageInput({ channelId, conversationId, onMessageSent }: Us
         await Promise.all(
           files.map(async (file) => {
             const result = await uploadFile(file, user.id);
-            fileUrls.push(result.url);
+            uploadedFiles.push({
+              url: result.url,
+              filename: file.name,
+              filetype: file.type
+            });
           })
         );
         setIsUploading(false);
@@ -44,15 +55,17 @@ export function useMessageInput({ channelId, conversationId, onMessageSent }: Us
         ? `/api/channels/${channelId}/messages`
         : `/api/conversations/${conversationId}/messages`;
 
+      const request: SendMessageRequest = {
+        content: content.trim(),
+        files: uploadedFiles
+      };
+
       const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          content: content.trim(),
-          fileUrls,
-        }),
+        body: JSON.stringify(request),
       });
 
       if (!res.ok) throw new Error("Failed to send message");
@@ -90,17 +103,20 @@ export function useMessageInput({ channelId, conversationId, onMessageSent }: Us
   const isSubmitDisabled = (!content.trim() && files.length === 0) || isSending || isUploading;
 
   return {
+    // State
     content,
-    setContent,
     files,
     isUploading,
     isSending,
-    fileInputRef,
+    isInputDisabled,
+    isSubmitDisabled,
+    // Handlers
+    setContent,
     handleSubmit,
     handleFileChange,
     removeFile,
     openFileInput,
-    isInputDisabled,
-    isSubmitDisabled,
+    // Refs
+    fileInputRef,
   };
 } 

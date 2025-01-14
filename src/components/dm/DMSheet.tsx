@@ -24,7 +24,7 @@ export function DMSheet() {
       // Get or initialize conversation
       const res = await fetch(`/api/users/${userId}/conversation`);
       if (!res.ok) throw new Error('Failed to get conversation');
-      const data = await res.json();
+      const { data } = await res.json();
       
       // Navigate to the conversation
       router.push(`/conversations/${data.conversationId}`);
@@ -83,7 +83,7 @@ export function DMSheet() {
           >
             <div className="relative">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={user.profileImageUrl} />
+                <AvatarImage src={user.profileImageUrl ?? undefined} />
                 <AvatarFallback>{user.username[0]?.toUpperCase()}</AvatarFallback>
               </Avatar>
               <span 

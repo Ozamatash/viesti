@@ -1,46 +1,16 @@
 import { useState, useEffect } from "react";
 import { useSocket } from "~/hooks/useSocket";
+import { 
+  Thread, 
+  SocketEventName,
+  ThreadReplyEvent,
+  SendMessageRequest,
+  GetThreadResponse,
+  ThreadError,
+  ThreadHookResult
+} from "~/types";
 
-interface User {
-  id: string;
-  username: string;
-  profileImageUrl: string | null;
-}
-
-interface File {
-  id: number;
-  url: string;
-  filename: string;
-  filetype: string;
-}
-
-interface Reaction {
-  id: number;
-  emoji: string;
-  user: {
-    id: string;
-    username: string;
-  };
-}
-
-interface Message {
-  id: number;
-  content: string;
-  createdAt: string;
-  channelId: number;
-  user: User;
-  files: File[];
-  reactions: Reaction[];
-  _count?: {
-    replies: number;
-  };
-}
-
-interface Thread extends Message {
-  replies: Message[];
-}
-
-export function useThread(messageId: number) {
+export function useThread(messageId: number): ThreadHookResult {
   const [thread, setThread] = useState<Thread | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +27,7 @@ export function useThread(messageId: number) {
         if (!response.ok) {
           throw new Error("Failed to fetch thread");
         }
-        const data = await response.json();
+        const { data }: GetThreadResponse = await response.json();
         
         if (mounted) {
           setThread(data);
@@ -65,7 +35,7 @@ export function useThread(messageId: number) {
           
           // Join the thread's channel
           if (socket && data.channelId) {
-            socket.emit("join-channel", data.channelId.toString());
+            socket.emit(SocketEventName.JoinChannel, data.channelId);
           }
         }
       } catch (err) {
@@ -85,69 +55,98 @@ export function useThread(messageId: number) {
 
     return () => {
       mounted = false;
-    };
-  }, [messageId, socket]);
-
-  useEffect(() => {
-    if (!socket || !channelId) return;
-
-    const handleThreadReply = (data: { messageId: number; reply: Message }) => {
-      if (data.messageId === messageId) {
-        setThread((prev) => {
-          if (!prev) return prev;
-          const replyExists = prev.replies.some(reply => reply.id === data.reply.id);
-          if (replyExists) return prev;
-          return {
-            ...prev,
-            replies: [...prev.replies, data.reply],
-          };
-        });
+      // Leave the channel when unmounting
+      if (socket && channelId) {
+        socket.emit(SocketEventName.LeaveChannel, channelId);
       }
     };
+  }, [messageId, socket, channelId]);
 
-    // Set up socket listeners
-    socket.on("thread-reply", handleThreadReply);
+  // Listen for new replies
+  useEffect(() => {
+    if (!socket || !thread) return;
 
-    // Join channel
-    socket.emit("join-channel", channelId.toString());
+    const handleNewReply = (event: ThreadReplyEvent) => {
+      if (event.messageId !== thread.id) return;
 
-    // Cleanup function
-    return () => {
-      socket.off("thread-reply", handleThreadReply);
-      socket.emit("leave-channel", channelId.toString());
+      setThread(currentThread => {
+        if (!currentThread) return currentThread;
+        return {
+          ...currentThread,
+          replies: [...currentThread.replies, event.reply]
+        };
+      });
     };
-  }, [socket, channelId, messageId]);
+
+    socket.on(SocketEventName.ThreadReply, handleNewReply);
+
+    return () => {
+      socket.off(SocketEventName.ThreadReply, handleNewReply);
+    };
+  }, [socket, thread]);
 
   const addReply = async (content: string) => {
+    if (!thread) return;
+
     try {
-      const response = await fetch(`/api/messages/${messageId}/thread`, {
+      const request: SendMessageRequest = {
+        content
+      };
+
+      const response = await fetch(`/api/messages/${thread.id}/thread`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify(request),
       });
 
       if (!response.ok) {
         throw new Error("Failed to add reply");
       }
 
-      const reply = await response.json();
-      
-      // Optimistically update the UI
-      setThread((prev) => {
-        if (!prev) return prev;
-        const replyExists = prev.replies.some(r => r.id === reply.id);
-        if (replyExists) return prev;
+      const { data } = await response.json();
+      setThread(currentThread => {
+        if (!currentThread) return currentThread;
         return {
-          ...prev,
-          replies: [...prev.replies, reply],
+          ...currentThread,
+          replies: [...currentThread.replies, data]
         };
       });
-
-      return reply;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add reply");
+      console.error("Error adding reply:", err);
+      throw err;
+    }
+  };
+
+  const handleSendReply = async (request: SendMessageRequest) => {
+    if (!thread) return;
+
+    try {
+      const response = await fetch(`/api/messages/${thread.id}/thread`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      });
+
+      if (!response.ok) {
+        const error: ThreadError = new Error("Failed to send reply");
+        error.statusCode = response.status;
+        throw error;
+      }
+
+      const { data } = await response.json();
+      setThread(currentThread => {
+        if (!currentThread) return currentThread;
+        return {
+          ...currentThread,
+          replies: [...currentThread.replies, data]
+        };
+      });
+    } catch (err) {
+      console.error("Error sending reply:", err);
       throw err;
     }
   };
@@ -157,5 +156,6 @@ export function useThread(messageId: number) {
     isLoading,
     error,
     addReply,
+    handleSendReply
   };
 } 

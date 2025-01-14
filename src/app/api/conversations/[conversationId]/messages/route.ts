@@ -3,34 +3,86 @@ import { db } from "~/server/db";
 import { auth } from "@clerk/nextjs/server";
 import { emitNewMessage, getIO } from "~/server/socket";
 import { parseConversationId } from "~/lib/conversation";
+import { 
+  ApiError,
+  ErrorCode,
+  HttpStatus,
+  GetDirectMessagesResponse,
+  SendMessageRequest,
+  SendMessageResponse,
+  DirectMessage,
+  FileAttachment,
+  Reaction,
+  UserStatus
+} from "~/types";
 
-type Context = {
+interface ConversationContext {
   params: Promise<{ conversationId: string }>;
-};
+}
+
+// Helper to transform DB message to our API type
+function transformMessage(dbMessage: any): DirectMessage {
+  return {
+    id: dbMessage.id,
+    content: dbMessage.content,
+    createdAt: dbMessage.createdAt.toISOString(),
+    senderId: dbMessage.senderId,
+    receiverId: dbMessage.receiverId,
+    conversationId: dbMessage.conversationId,
+    user: {
+      id: dbMessage.sender.id,
+      username: dbMessage.sender.username,
+      profileImageUrl: dbMessage.sender.profileImageUrl || undefined,
+      status: UserStatus.Online // We'll assume online for now
+    },
+    files: dbMessage.files.map((file: any): FileAttachment => ({
+      id: file.id,
+      url: file.url,
+      filename: file.filename,
+      filetype: file.filetype
+    })),
+    reactions: dbMessage.reactions.map((reaction: any): Reaction => ({
+      id: reaction.id,
+      emoji: reaction.emoji,
+      user: {
+        id: reaction.user.id,
+        username: reaction.user.username
+      }
+    }))
+  };
+}
 
 export async function GET(
   request: NextRequest,
-  context: Context
+  context: ConversationContext
 ) {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      const error: ApiError = {
+        code: ErrorCode.AUTHENTICATION_ERROR,
+        message: "Authentication required",
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.UNAUTHORIZED });
     }
 
     const { conversationId } = await context.params;
     const url = new URL(request.url);
     const searchTerm = url.searchParams.get('search');
     const skip = Number(url.searchParams.get('skip') || '0');
+    const limit = 50;
 
     // Parse conversation ID to get both user IDs
     const { userId1, userId2 } = parseConversationId(conversationId);
 
     // Verify that the current user is part of the conversation
     if (userId !== userId1 && userId !== userId2) {
-      return new NextResponse("Not authorized to view this conversation", {
-        status: 403,
-      });
+      const error: ApiError = {
+        code: ErrorCode.AUTHORIZATION_ERROR,
+        message: "Not authorized to view this conversation",
+        details: { conversationId }
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.FORBIDDEN });
     }
 
     // Get messages
@@ -74,7 +126,7 @@ export async function GET(
       orderBy: {
         createdAt: "desc",
       },
-      take: 50,
+      take: limit,
       skip: skip,
     });
 
@@ -91,53 +143,74 @@ export async function GET(
       },
     });
 
-    // Format messages to match channel message format
-    const formattedMessages = messages.map((message) => ({
-      ...message,
-      user: message.sender,
-    }));
+    const response: GetDirectMessagesResponse = {
+      data: {
+        data: messages.map(transformMessage),
+        hasMore: skip + limit < totalCount,
+        total: totalCount
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID()
+      }
+    };
 
-    return NextResponse.json({
-      messages: formattedMessages,
-      hasMore: skip + 50 < totalCount,
-    });
+    return NextResponse.json(response, { status: HttpStatus.OK });
   } catch (error) {
     console.error("[CONVERSATION_MESSAGES_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    const apiError: ApiError = {
+      code: ErrorCode.INTERNAL_ERROR,
+      message: "Failed to fetch conversation messages",
+      stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+    };
+    return NextResponse.json({ error: apiError }, { status: HttpStatus.INTERNAL_SERVER_ERROR });
   }
 }
 
 export async function POST(
   request: NextRequest,
-  context: Context
+  context: ConversationContext
 ) {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      const error: ApiError = {
+        code: ErrorCode.AUTHENTICATION_ERROR,
+        message: "Authentication required",
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.UNAUTHORIZED });
     }
 
     const { conversationId } = await context.params;
-    const { content, fileUrls } = await request.json();
+    const body: SendMessageRequest = await request.json();
+    const { content, files } = body;
 
-    if (!content && (!fileUrls || fileUrls.length === 0)) {
-      return new NextResponse("Bad Request", { status: 400 });
+    if (!content?.trim() && (!files || files.length === 0)) {
+      const error: ApiError = {
+        code: ErrorCode.VALIDATION_ERROR,
+        message: "Message must contain either text content or files",
+        details: { 
+          content: content || undefined,
+          filesCount: files?.length || 0
+        }
+      };
+      return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
     }
 
     const { userId1, userId2 } = parseConversationId(conversationId);
     const receiverId = userId === userId1 ? userId2 : userId1;
 
-    const message = await db.directMessage.create({
+    const messageData = await db.directMessage.create({
       data: {
-        content,
+        content: content?.trim(),
         senderId: userId,
         receiverId,
         conversationId,
-        files: fileUrls ? {
-          create: fileUrls.map((url: string) => ({
-            url,
-            filename: url.split("/").pop() || "file",
-            filetype: url.split(".").pop() || "unknown",
+        files: files ? {
+          create: files.map(file => ({
+            url: file.url,
+            filename: file.filename,
+            filetype: file.filetype,
           })),
         } : undefined,
       },
@@ -170,21 +243,30 @@ export async function POST(
       },
     });
 
-    // Format message to match GET response
-    const formattedMessage = {
-      ...message,
-      user: message.sender,
-    };
+    const message = transformMessage(messageData);
 
     // Emit socket event for real-time updates
     const io = getIO();
     if (io) {
-      io.to(`conversation:${conversationId}`).emit("new-dm-message", formattedMessage);
+      io.to(`conversation:${conversationId}`).emit("new-dm-message", message);
     }
 
-    return NextResponse.json(formattedMessage);
+    const response: SendMessageResponse = {
+      data: message,
+      meta: {
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID()
+      }
+    };
+
+    return NextResponse.json(response, { status: HttpStatus.CREATED });
   } catch (error) {
     console.error("[CONVERSATION_MESSAGES_POST]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    const apiError: ApiError = {
+      code: ErrorCode.INTERNAL_ERROR,
+      message: "Failed to send message",
+      stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+    };
+    return NextResponse.json({ error: apiError }, { status: HttpStatus.INTERNAL_SERVER_ERROR });
   }
 } 

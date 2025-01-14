@@ -6,14 +6,13 @@ import { Textarea } from "~/components/ui/textarea";
 import { Paperclip, X, Loader2, Send } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { useMessageInput } from "~/hooks/messages/useMessageInput";
-
-interface MessageInputProps {
-  channelId?: number;
-  conversationId?: string;
-  onMessageSent?: () => void;
-  onSend?: (content: string) => Promise<void>;
-  isThread?: boolean;
-}
+import { 
+  SendMessageRequest,
+  MessageInputProps,
+  MessageInputState,
+  MessageInputHandlers,
+  MessageInputRefs
+} from "~/types";
 
 export function MessageInput({ 
   channelId, 
@@ -23,24 +22,28 @@ export function MessageInput({
   isThread 
 }: MessageInputProps) {
   const {
+    // State
     content,
-    setContent,
     files,
     isUploading,
     isSending,
-    fileInputRef,
+    isInputDisabled,
+    isSubmitDisabled,
+    // Handlers
+    setContent,
     handleSubmit: defaultHandleSubmit,
     handleFileChange,
     removeFile,
     openFileInput,
-    isInputDisabled,
-    isSubmitDisabled,
+    // Refs
+    fileInputRef,
   } = useMessageInput({ channelId, conversationId, onMessageSent });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isThread && onSend) {
-      await onSend(content);
+      const request: SendMessageRequest = { content };
+      await onSend(request);
       setContent("");
     } else {
       defaultHandleSubmit(e);
