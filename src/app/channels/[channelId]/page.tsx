@@ -19,7 +19,6 @@ interface PageProps {
 }
 
 export default async function ChannelPage(props: PageProps) {
-  const searchParams = await props.searchParams;
   const { userId } = await auth();
   const { channelId: channelIdStr } = await props.params;
   const channelId = Number(channelIdStr);
@@ -99,7 +98,11 @@ export default async function ChannelPage(props: PageProps) {
       {/* Main content */}
       <ResizablePanel defaultSize={80} className="h-full bg-background">
         <div className="flex h-full flex-col">
-          <ChannelHeader channel={channel} />
+          <ChannelHeader 
+            channelId={channelId}
+            name={channel.name}
+            description={channel.description}
+          />
 
           {/* Messages */}
           <div className="flex-1 overflow-hidden">

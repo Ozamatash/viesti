@@ -5,9 +5,8 @@ import { MessageList } from "~/components/message/MessageList";
 import { MessageInput } from "~/components/message/MessageInput";
 import { WorkspacePanel } from "~/components/workspace/WorkspacePanel";
 import { ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { cn } from "~/lib/utils";
-import { DMRecap } from "~/components/dm/DMRecap";
+import { DMHeader } from "~/components/dm/DMHeader";
 import { User, UserStatus } from "~/types";
 import { Prisma } from "@prisma/client";
 import { parseConversationId } from "~/lib/conversation";
@@ -75,40 +74,10 @@ export default async function ConversationPage(props: PageProps) {
       {/* Main content */}
       <ResizablePanel defaultSize={96} className="bg-background">
         <div className="flex h-full flex-col">
-          {/* Conversation header */}
-          <div className="border-b p-4 bg-muted/30">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src={user.profileImageUrl ?? undefined} />
-                    <AvatarFallback>{user.username[0]?.toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <span 
-                    className={cn(
-                      "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background",
-                      user.status === UserStatus.Online ? "bg-green-500" : "bg-muted"
-                    )}
-                  />
-                </div>
-                <div>
-                  <h1 className="text-lg font-semibold">{user.username}</h1>
-                  <p className={cn(
-                    "text-sm",
-                    user.status === UserStatus.Online 
-                      ? "text-green-600" 
-                      : "text-muted-foreground"
-                  )}>
-                    {user.status}
-                  </p>
-                </div>
-              </div>
-              <DMRecap 
-                conversationId={conversationId} 
-                participantName={user.username} 
-              />
-            </div>
-          </div>
+          <DMHeader 
+            conversationId={conversationId}
+            user={user}
+          />
 
           {/* Messages */}
           <div className="flex-1 overflow-hidden">

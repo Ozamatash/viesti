@@ -24,7 +24,7 @@ export function SearchInput({
           let timeoutId: NodeJS.Timeout;
           return (value: string) => {
             clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => fn(value), 300);
+            timeoutId = setTimeout(() => fn(value), 1000);
           };
         },
       []

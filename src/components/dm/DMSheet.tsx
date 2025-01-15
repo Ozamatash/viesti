@@ -27,7 +27,7 @@ export function DMSheet() {
       const { data } = await res.json();
       
       // Navigate to the conversation
-      router.push(`/conversations/${data.conversationId}`);
+      router.push(`/DirectMessage/${data.conversationId}`);
     } catch (error) {
       console.error('Error getting conversation:', error);
       alert('Failed to open conversation. Please try again.');

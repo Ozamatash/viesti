@@ -121,8 +121,8 @@ export interface MessageSearchResult {
 export interface MessageEventHandlers {
   onReactionAdd: (messageId: number, emoji: string) => Promise<void>;
   onThreadOpen: (messageId: number) => void;
-  onSearchSelect: (messageId: number) => void;
-  onSearchClear: () => void;
+  onSearchSelect?: (messageId: number) => void;
+  onSearchClear?: () => void;
 }
 
 export interface MessageSearchState {
