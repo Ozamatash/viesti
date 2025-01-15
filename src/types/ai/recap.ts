@@ -1,3 +1,4 @@
+// Core recap types
 export type RecapType = 'channel' | 'thread' | 'direct';
 
 export type RecapTimeframe = {
@@ -30,10 +31,16 @@ export interface RecapData {
       messageCount: number;
     }[];
   };
+  threads?: {
+    total: number;
+    active: number;
+    resolved: number;
+  };
   generatedAt: string;
 }
 
-export interface RecapRequest {
+// Parameters for recap generation
+export interface RecapParams {
   type: RecapType;
   id: string;
   startTime?: string;
@@ -47,31 +54,4 @@ export interface RecapRequest {
 export interface RecapMeta {
   timestamp: string;
   requestId: string;
-}
-
-export interface RecapResponse {
-  data: RecapData;
-  meta: RecapMeta;
-}
-
-export interface RecapTriggerProps {
-  onClick: () => void;
-  isLoading?: boolean;
-  label?: string;
-}
-
-export interface RecapTimeframeSelectProps {
-  value: RecapTimeframe['value'];
-  onChange: (value: RecapTimeframe['value']) => void;
-}
-
-export interface RecapContentProps {
-  recap: RecapData;
-}
-
-export interface RecapDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  children: React.ReactNode;
 } 

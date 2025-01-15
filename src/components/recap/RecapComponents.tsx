@@ -14,13 +14,12 @@ import {
 } from "~/components/ui/select"
 import { Skeleton } from "~/components/ui/skeleton"
 import { 
-  RecapTimeframe,
   TIMEFRAME_OPTIONS,
   RecapTriggerProps,
   RecapTimeframeSelectProps,
   RecapContentProps,
   RecapDialogProps
-} from "~/types/recap"
+} from "~/types"
 
 export function RecapTrigger({ onClick, isLoading, label = "Generate Recap" }: RecapTriggerProps) {
   return (

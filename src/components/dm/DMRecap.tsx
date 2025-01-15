@@ -8,7 +8,7 @@ import {
   RecapDialog,
   RecapSkeleton,
 } from '~/components/recap/RecapComponents';
-import { RecapTimeframe } from '~/types/recap';
+import { RecapTimeframe } from '~/types';
 import { useRecap } from '~/hooks/useRecap';
 
 interface DMRecapProps {
@@ -52,7 +52,7 @@ export function DMRecap({ conversationId, participantName }: DMRecapProps) {
         <div className="space-y-4">
           <RecapTimeframeSelect
             value={timeframe}
-            onChange={(value) => setTimeframe(value)}
+            onChange={(value: RecapTimeframe['value']) => setTimeframe(value)}
           />
           
           {isLoading && <RecapSkeleton />}

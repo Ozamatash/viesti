@@ -8,7 +8,7 @@ import {
   RecapDialog,
   RecapSkeleton,
 } from '~/components/recap/RecapComponents';
-import { RecapTimeframe } from '~/types/recap';
+import { RecapTimeframe } from '~/types';
 import { useRecap } from '~/hooks/useRecap';
 
 interface ChannelRecapProps {
@@ -53,7 +53,7 @@ export function ChannelRecap({ channelId, channelName }: ChannelRecapProps) {
         <div className="space-y-4">
           <RecapTimeframeSelect
             value={timeframe}
-            onChange={(value) => setTimeframe(value)}
+            onChange={(value: RecapTimeframe['value']) => setTimeframe(value)}
           />
           
           {isLoading && <RecapSkeleton />}

@@ -2,8 +2,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { Document } from "langchain/document";
 import { searchSimilarDocuments } from "./vector-store";
 import { getAIEnvVars, defaultAIConfig } from "~/config/ai";
-import { MessageMetadata } from "~/types";
-import { RecapData } from "~/types/recap";
+import { MessageMetadata, RecapData } from "~/types";
 
 export interface RecapOptions {
   startTime?: Date;

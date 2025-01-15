@@ -7,7 +7,7 @@ import {
   RecapContent,
   RecapSkeleton,
 } from '~/components/recap/RecapComponents';
-import { RecapTimeframe } from '~/types/recap';
+import { RecapTimeframe } from '~/types';
 import { useRecap } from '~/hooks/useRecap';
 import { Card } from '~/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible';

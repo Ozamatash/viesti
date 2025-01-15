@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { generateChannelRecap, generateThreadRecap, generateDirectMessageRecap } from "~/lib/ai/recap";
 import { ApiError, ErrorCode, HttpStatus } from "~/types";
-import { RecapRequest, RecapResponse } from "~/types/recap";
+import { RecapRequest, RecapResponse } from "~/types";
 
 export async function POST(req: NextRequest) {
   try {

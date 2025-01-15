@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RecapType, RecapRequest, RecapResponse, RecapData, RecapTimeframe } from '~/types/recap';
+import { RecapType, RecapRequest, RecapResponse, RecapData, RecapTimeframe } from '~/types';
 
 interface UseRecapProps {
   type: RecapType;
