@@ -267,7 +267,7 @@ export async function POST(
           channelId: reply.channelId.toString(),
           parentMessageId: messageId.toString(),
           userId,
-          timestamp: new Date(reply.createdAt),
+          timestamp: new Date(reply.createdAt).toISOString(),
           type: "thread_reply" as const
         }
       });

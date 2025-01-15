@@ -256,7 +256,7 @@ export async function POST(
           conversationId,
           senderId: userId,
           receiverId,
-          timestamp: new Date(message.createdAt),
+          timestamp: new Date(message.createdAt).toISOString(),
           type: "direct_message" as const
         }
       });
