@@ -7,6 +7,7 @@ import {
   RecapContent,
   RecapDialog,
   RecapSkeleton,
+  RecapGenerateButton
 } from '~/components/recap/RecapComponents';
 import { RecapTimeframe } from '~/types';
 import { useRecap } from '~/hooks/useRecap';
@@ -32,16 +33,18 @@ export function ChannelRecap({ channelId, channelName }: ChannelRecapProps) {
     }
   });
 
+  const handleOpenDialog = () => {
+    setIsOpen(true);
+  };
+
   const handleGenerate = async () => {
     await generateRecap();
-    setIsOpen(true);
   };
 
   return (
     <>
       <RecapTrigger 
-        onClick={handleGenerate} 
-        isLoading={isLoading}
+        onClick={handleOpenDialog}
         label="Channel Recap"
       />
 
@@ -50,12 +53,21 @@ export function ChannelRecap({ channelId, channelName }: ChannelRecapProps) {
         onOpenChange={setIsOpen}
         title={`Recap for #${channelName}`}
       >
+        {/* Controls Section */}
         <div className="space-y-4">
           <RecapTimeframeSelect
             value={timeframe}
             onChange={(value: RecapTimeframe['value']) => setTimeframe(value)}
           />
           
+          <RecapGenerateButton
+            onClick={handleGenerate}
+            isLoading={isLoading}
+          />
+        </div>
+
+        {/* Content Section */}
+        <div>
           {isLoading && <RecapSkeleton />}
           {!isLoading && recap && <RecapContent recap={recap} />}
         </div>

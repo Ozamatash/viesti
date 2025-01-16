@@ -12,6 +12,11 @@ export const TIMEFRAME_OPTIONS: RecapTimeframe[] = [
   { value: 'month', label: 'Last 30 days' },
 ]
 
+export interface CustomTimeRange {
+  startDate: Date;
+  endDate: Date;
+}
+
 export interface RecapData {
   summary: string;
   keyPoints?: string[];

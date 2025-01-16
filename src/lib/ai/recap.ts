@@ -76,9 +76,12 @@ export async function generateChannelRecap(
     endTime,
     includeTopics,
     includeParticipants,
-    promptTemplate: `Provide a concise summary of this chat conversation.
+    promptTemplate: `Provide a concise summary of this channel's conversation.
 Write a brief summary that captures the main points and context.
-Focus on the content and information exchanged.
+Focus on:
+- Key information and decisions
+- Important announcements or updates
+- Action items and next steps
 ${includeTopics ? 'Include relevant topics discussed.' : ''}
 ${includeParticipants ? 'Note participant contributions where significant.' : ''}
 Maintain a neutral, factual tone.
@@ -120,14 +123,16 @@ export async function generateThreadRecap(
     endTime,
     includeTopics,
     includeParticipants,
-    promptTemplate: `Please provide a concise summary of this conversation thread.
-Extract:
-- Main topic/question
-- Key points discussed
-- Decisions made
-- Action items (if any)
-${includeTopics ? '\nExtract key topics discussed.' : ''}
-${includeParticipants ? '\nHighlight active participants and their contributions.' : ''}
+    promptTemplate: `Provide a concise summary of this conversation thread.
+Write a brief summary that captures the main points and context.
+Focus on:
+- Original question or topic
+- Key discussion points and insights
+- Decisions made or conclusions reached
+- Action items and next steps
+${includeTopics ? 'Include relevant topics discussed.' : ''}
+${includeParticipants ? 'Note participant contributions where significant.' : ''}
+Maintain a neutral, factual tone.
 
 Thread:
 {messages}
@@ -166,13 +171,16 @@ export async function generateDirectMessageRecap(
     endTime,
     includeTopics,
     includeParticipants,
-    promptTemplate: `Please provide a concise summary of this direct message conversation.
+    promptTemplate: `Provide a concise summary of this direct message conversation.
+Write a brief summary that captures the main points and context.
 Focus on:
-- Main topics of discussion
-- Agreements or decisions made
-- Action items or next steps
-${includeTopics ? '\nExtract key topics discussed.' : ''}
-${includeParticipants ? '\nHighlight participation and engagement.' : ''}
+- Key discussion points and agreements
+- Decisions made or conclusions reached
+- Action items and next steps
+- Important updates or information shared
+${includeTopics ? 'Include relevant topics discussed.' : ''}
+${includeParticipants ? 'Note engagement and key exchanges.' : ''}
+Maintain a neutral, factual tone.
 
 Conversation:
 {messages}

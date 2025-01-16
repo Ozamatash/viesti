@@ -20,4 +20,10 @@ export interface RecapDialogProps {
   onOpenChange: (open: boolean) => void;
   title: string;
   children: React.ReactNode;
+}
+
+export interface RecapGenerateButtonProps {
+  onClick: () => void;
+  isLoading?: boolean;
+  disabled?: boolean;
 } 

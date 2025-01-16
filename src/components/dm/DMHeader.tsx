@@ -5,6 +5,7 @@ import { cn } from "~/lib/utils";
 import { UserStatus } from "~/types";
 import { IntelligentSearchDialog } from "~/components/search/IntelligentSearchDialog";
 import { DMRecap } from "./DMRecap";
+import { useMessageSearch } from "~/hooks/messages/useMessageSearch";
 
 interface DMHeaderProps {
   conversationId: string;
@@ -17,9 +18,10 @@ interface DMHeaderProps {
 }
 
 export function DMHeader({ conversationId, user }: DMHeaderProps) {
+  const { scrollToMessage } = useMessageSearch({ conversationId });
+
   const handleSearchSelect = (messageId: number) => {
-    // TODO: Implement search selection handling
-    console.log('Message selected:', messageId);
+    scrollToMessage(messageId);
   };
 
   return (

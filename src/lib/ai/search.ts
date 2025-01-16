@@ -2,7 +2,33 @@ import { ChatOpenAI } from "@langchain/openai";
 import { Document } from "langchain/document";
 import { searchSimilarDocuments } from "./vector-store";
 import { getAIEnvVars, defaultAIConfig } from "~/config/ai";
-import { MessageMetadata, MessageSearchResult } from "~/types";
+import { MessageMetadata } from "~/types";
+import { db } from "~/server/db";
+
+export interface MessageSearchResult {
+  id: number;
+  content: string;
+  createdAt: string;
+  relevanceScore?: number;
+  user: {
+    id: string;
+    username: string;
+    profileImageUrl: string | null;
+  };
+  channel?: {
+    id: number;
+    name: string;
+  };
+  thread?: {
+    id: number;
+    messageCount: number;
+  };
+}
+
+export interface SearchResponse {
+  answer: string | null;
+  results: MessageSearchResult[];
+}
 
 export interface SearchOptions {
   channelId?: string;
@@ -20,7 +46,7 @@ type MessageType = "message" | "thread_reply" | "direct_message";
 export async function searchMessages(
   query: string,
   options: SearchOptions
-): Promise<MessageSearchResult[]> {
+): Promise<SearchResponse> {
   const {
     channelId,
     conversationId,
@@ -108,28 +134,121 @@ Relevance Score (0-100):`;
       .map(({ message }) => message);
   }
 
-  // Convert to MessageSearchResult format
-  return allMessages.map((msg) => ({
-    id: parseInt(msg.metadata?.messageId || "0", 10),
-    content: msg.pageContent,
-    createdAt: msg.metadata?.timestamp || new Date().toISOString(),
-    relevanceScore: msg.metadata?.score,
-    user: {
-      id: msg.metadata?.userId || "",
-      username: msg.metadata?.username || "Unknown",
-      profileImageUrl: msg.metadata?.userProfileImage || null
+  // Get message IDs from vector store results
+  const messageIds = allMessages.map(msg => 
+    parseInt(msg.metadata?.messageId || "0", 10)
+  ).filter(id => id > 0);
+
+  // Fetch complete message data from database
+  const dbMessages = await db.message.findMany({
+    where: {
+      id: {
+        in: messageIds
+      }
     },
-    ...(msg.metadata?.channelId && {
+    include: {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          profileImageUrl: true
+        }
+      },
       channel: {
-        id: parseInt(msg.metadata.channelId, 10),
-        name: msg.metadata.channelName || "Unknown"
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      replies: {
+        select: {
+          id: true
+        }
       }
-    }),
-    ...(msg.metadata?.threadId && {
-      thread: {
-        id: parseInt(msg.metadata.threadId, 10),
-        messageCount: msg.metadata.threadMessageCount || 0
+    }
+  });
+
+  // Create a map for quick message lookup
+  const messageMap = new Map(
+    dbMessages.map(msg => [msg.id, msg])
+  );
+
+  // Combine vector store results with database data
+  const results = allMessages.map((msg) => {
+    const messageId = parseInt(msg.metadata?.messageId || "0", 10);
+    const dbMessage = messageMap.get(messageId);
+
+    if (!dbMessage) {
+      console.warn(`Message ${messageId} not found in database`);
+      return null;
+    }
+
+    const result: MessageSearchResult = {
+      id: messageId,
+      content: msg.pageContent,
+      createdAt: dbMessage.createdAt.toISOString(),
+      relevanceScore: msg.metadata?.score,
+      user: {
+        id: dbMessage.user.id,
+        username: dbMessage.user.username,
+        profileImageUrl: dbMessage.user.profileImageUrl
       }
-    })
-  }));
+    };
+
+    if (dbMessage.channel) {
+      result.channel = {
+        id: dbMessage.channel.id,
+        name: dbMessage.channel.name
+      };
+    }
+
+    if (dbMessage.replies.length > 0) {
+      result.thread = {
+        id: dbMessage.id,
+        messageCount: dbMessage.replies.length
+      };
+    }
+
+    return result;
+  }).filter((result): result is MessageSearchResult => result !== null);
+
+  // Generate AI answer for semantic search
+  let answer: string | null = null;
+  if (searchMode === "semantic" && results.length > 0) {
+    const { openAIApiKey } = getAIEnvVars();
+    const llm = new ChatOpenAI({
+      openAIApiKey,
+      modelName: defaultAIConfig.llmModel,
+      temperature: 0.7 // Slightly higher for more natural responses
+    });
+
+    // Format messages for context
+    const messagesContext = results
+      .map(msg => `${msg.user.username}: ${msg.content}`)
+      .join("\n");
+
+    // Create prompt for answer generation
+    const answerPrompt = `Based on these chat messages, answer the following question naturally and conversationally.
+Be concise but informative. If you're not sure, just say so.
+
+Chat Messages:
+${messagesContext}
+
+Question: ${query}
+
+Answer:`;
+
+    try {
+      const response = await llm.invoke(answerPrompt);
+      answer = response.content.toString().trim();
+    } catch (error) {
+      console.error("[SEARCH] Failed to generate answer:", error);
+      answer = null;
+    }
+  }
+
+  return {
+    answer,
+    results
+  };
 } 

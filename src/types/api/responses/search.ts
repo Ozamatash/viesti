@@ -6,10 +6,12 @@ export interface SearchResult {
   createdAt: string;
   relevanceScore?: number;
   user: {
+    id: string;
     username: string;
     profileImageUrl: string | null;
   };
   channel?: {
+    id: number;
     name: string;
   };
   thread?: {
@@ -20,6 +22,7 @@ export interface SearchResult {
 
 export interface SearchResponse extends ApiResponse {
   data: {
+    answer: string | null;
     results: SearchResult[];
   };
 } 

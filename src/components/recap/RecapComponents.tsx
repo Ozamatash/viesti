@@ -18,7 +18,8 @@ import {
   RecapTriggerProps,
   RecapTimeframeSelectProps,
   RecapContentProps,
-  RecapDialogProps
+  RecapDialogProps,
+  RecapGenerateButtonProps,
 } from "~/types"
 
 export function RecapTrigger({ onClick, isLoading, label = "Generate Recap" }: RecapTriggerProps) {
@@ -51,13 +52,25 @@ export function RecapTimeframeSelect({ value, onChange }: RecapTimeframeSelectPr
   )
 }
 
+export function RecapGenerateButton({ onClick, isLoading, disabled }: RecapGenerateButtonProps) {
+  return (
+    <Button
+      onClick={onClick}
+      disabled={disabled || isLoading}
+      className="w-full mt-4"
+    >
+      {isLoading ? "Generating..." : "Generate Recap"}
+    </Button>
+  )
+}
+
 export function RecapContent({ recap }: RecapContentProps) {
   if (!recap) {
     return <div>No recap data available</div>;
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4">
       <div>
         <h3 className="font-semibold mb-2">Summary</h3>
         <p className="text-sm text-muted-foreground">{recap.summary}</p>
@@ -124,11 +137,20 @@ export function RecapContent({ recap }: RecapContentProps) {
 export function RecapDialog({ open, onOpenChange, title, children }: RecapDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        {children}
+        <div className="flex flex-col flex-1 min-h-0">
+          {/* Controls section - always visible */}
+          <div className="flex-none p-4 border-b">
+            {children instanceof Array ? children[0] : null}
+          </div>
+          {/* Scrollable content section */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {children instanceof Array ? children.slice(1) : children}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
@@ -136,7 +158,7 @@ export function RecapDialog({ open, onOpenChange, title, children }: RecapDialog
 
 export function RecapSkeleton() {
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4">
       <Skeleton className="h-[100px] w-full" />
       <Skeleton className="h-[200px] w-full" />
       <Skeleton className="h-[100px] w-full" />

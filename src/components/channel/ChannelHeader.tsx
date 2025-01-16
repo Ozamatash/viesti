@@ -3,6 +3,7 @@
 import { Hash } from "lucide-react";
 import { IntelligentSearchDialog } from "~/components/search/IntelligentSearchDialog";
 import { ChannelRecap } from "./ChannelRecap";
+import { useMessageSearch } from "~/hooks/messages/useMessageSearch";
 
 interface ChannelHeaderProps {
   channelId: number;
@@ -15,9 +16,10 @@ export function ChannelHeader({
   name, 
   description,
 }: ChannelHeaderProps) {
+  const { scrollToMessage } = useMessageSearch({ channelId });
+
   const handleSearchSelect = (messageId: number) => {
-    // TODO: Implement search selection handling
-    console.log('Message selected:', messageId);
+    scrollToMessage(messageId);
   };
 
   return (

@@ -11,6 +11,7 @@ interface UseIntelligentSearchProps {
 
 interface UseIntelligentSearchResult {
   query: string;
+  answer: string | null;
   results: MessageSearchResult[];
   isSearching: boolean;
   searchMode: "semantic" | "keyword";
@@ -24,6 +25,7 @@ export function useIntelligentSearch({
   conversationId,
 }: UseIntelligentSearchProps = {}): UseIntelligentSearchResult {
   const [query, setQuery] = useState("");
+  const [answer, setAnswer] = useState<string | null>(null);
   const [results, setResults] = useState<MessageSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchMode, setSearchMode] = useState<"semantic" | "keyword">("semantic");
@@ -33,6 +35,7 @@ export function useIntelligentSearch({
   const handleSearch = useCallback(async (value: string) => {
     if (!value.trim()) {
       setResults([]);
+      setAnswer(null);
       return;
     }
 
@@ -51,10 +54,12 @@ export function useIntelligentSearch({
       }
 
       const data = await response.json() as SearchResponse;
+      setAnswer(data.data.answer);
       setResults(data.data.results);
     } catch (error) {
       console.error("Search error:", error);
       setResults([]);
+      setAnswer(null);
     } finally {
       setIsSearching(false);
     }
@@ -67,6 +72,7 @@ export function useIntelligentSearch({
 
   return {
     query,
+    answer,
     results,
     isSearching,
     searchMode,

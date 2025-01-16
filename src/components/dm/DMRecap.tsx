@@ -7,6 +7,7 @@ import {
   RecapContent,
   RecapDialog,
   RecapSkeleton,
+  RecapGenerateButton
 } from '~/components/recap/RecapComponents';
 import { RecapTimeframe } from '~/types';
 import { useRecap } from '~/hooks/useRecap';
@@ -31,16 +32,18 @@ export function DMRecap({ conversationId, participantName }: DMRecapProps) {
     }
   });
 
+  const handleOpenDialog = () => {
+    setIsOpen(true);
+  };
+
   const handleGenerate = async () => {
     await generateRecap();
-    setIsOpen(true);
   };
 
   return (
     <>
       <RecapTrigger 
-        onClick={handleGenerate} 
-        isLoading={isLoading}
+        onClick={handleOpenDialog}
         label="Conversation Recap"
       />
 
@@ -49,12 +52,21 @@ export function DMRecap({ conversationId, participantName }: DMRecapProps) {
         onOpenChange={setIsOpen}
         title={`Recap with ${participantName}`}
       >
+        {/* Controls Section */}
         <div className="space-y-4">
           <RecapTimeframeSelect
             value={timeframe}
             onChange={(value: RecapTimeframe['value']) => setTimeframe(value)}
           />
           
+          <RecapGenerateButton
+            onClick={handleGenerate}
+            isLoading={isLoading}
+          />
+        </div>
+
+        {/* Content Section */}
+        <div>
           {isLoading && <RecapSkeleton />}
           {!isLoading && recap && <RecapContent recap={recap} />}
         </div>

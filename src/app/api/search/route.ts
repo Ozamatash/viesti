@@ -71,83 +71,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let results;
-    if (mode === "semantic") {
-      // Use vector store for semantic search
-      const vectorStore = await getVectorStore();
-      results = await searchMessages(query, {
-        channelId: channelId ? channelId : undefined,
-        conversationId: conversationId || undefined,
-        searchMode: mode,
-      });
-    } else {
-      // Use database for keyword search
-      const where = {
-        content: {
-          contains: query,
-          mode: 'insensitive' as const,
-        },
-        ...(channelId && {
-          channelId: Number(channelId),
-        }),
-        ...(conversationId && {
-          conversationId,
-        }),
-      };
-
-      const dbResults = await db.message.findMany({
-        where,
-        include: {
-          user: {
-            select: {
-              username: true,
-              profileImageUrl: true,
-            },
-          },
-          channel: {
-            select: {
-              name: true,
-            },
-          },
-          _count: {
-            select: {
-              replies: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: 20,
-      });
-
-      // Transform results to match SearchResult type
-      results = dbResults.map(message => ({
-        id: message.id,
-        content: message.content,
-        createdAt: message.createdAt.toISOString(),
-        user: {
-          username: message.user.username,
-          profileImageUrl: message.user.profileImageUrl,
-        },
-        ...(message.channel && {
-          channel: {
-            name: message.channel.name,
-          },
-        }),
-        ...(message._count.replies > 0 && {
-          thread: {
-            id: message.id,
-            messageCount: message._count.replies,
-          },
-        }),
-      }));
-    }
+    // Perform search with the new search function
+    const searchResults = await searchMessages(query, {
+      channelId: channelId ? channelId : undefined,
+      conversationId: conversationId || undefined,
+      searchMode: mode || "semantic",
+    });
 
     // Return response in the expected format
     return NextResponse.json({
       data: {
-        results,
+        answer: searchResults.answer,
+        results: searchResults.results,
       },
       meta: {
         timestamp: new Date().toISOString(),
