@@ -92,52 +92,14 @@ export async function searchMessages(
       searchType: "similarity"
     });
     console.log("[SEARCH] Found thread messages:", threadMessages.length);
-    allMessages = [...messages, ...threadMessages].slice(0, maxResults);
-  }
-
-  // If using semantic search, rerank results using LLM
-  if (searchMode === "semantic") {
-    const { openAIApiKey } = getAIEnvVars();
-    const llm = new ChatOpenAI({
-      openAIApiKey,
-      modelName: defaultAIConfig.llmModel,
-      temperature: 0
-    });
-
-    // Create prompt for relevance scoring
-    const scoringPrompt = `Rate how relevant each message is to the following query on a scale of 0-100.
-Focus on semantic meaning and context, not just keyword matches.
-Consider the message timestamp when evaluating temporal references (e.g., "today", "tomorrow", "next week").
-Provide just the numeric score, nothing else.
-
-Query: ${query}
-
-Message: {message}
-
-Relevance Score (0-100):`;
-
-    // Score each message for relevance
-    const scoredMessages = await Promise.all(
-      allMessages.map(async (msg) => {
-        const messageWithTime = `Message (sent ${new Date(msg.metadata?.timestamp || "").toLocaleString()}): ${msg.pageContent}`;
-        const prompt = scoringPrompt.replace("{message}", messageWithTime);
-        const response = await llm.invoke(prompt);
-        const score = parseInt(response.content.toString().trim(), 10);
-        return {
-          message: msg,
-          score: isNaN(score) ? 0 : score
-        };
-      })
-    );
-
-    // Sort by relevance score and limit to maxResults
-    allMessages = scoredMessages
-      .sort((a, b) => b.score - a.score)
-      .slice(0, maxResults)
-      .map(({ message }) => message);
+    allMessages = [...messages, ...threadMessages]
+      .sort((a, b) => (b.metadata?.score || 0) - (a.metadata?.score || 0))
+      .slice(0, maxResults);
   } else {
-    // For non-semantic search, just limit the results
-    allMessages = allMessages.slice(0, maxResults);
+    // For non-semantic search, just sort by similarity score and limit results
+    allMessages = allMessages
+      .sort((a, b) => (b.metadata?.score || 0) - (a.metadata?.score || 0))
+      .slice(0, maxResults);
   }
 
   // Get message IDs from vector store results
