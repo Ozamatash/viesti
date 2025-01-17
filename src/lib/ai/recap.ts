@@ -2,7 +2,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { Document } from "langchain/document";
 import { searchSimilarDocuments } from "./vector-store";
 import { getAIEnvVars, defaultAIConfig } from "~/config/ai";
-import { MessageMetadata, RecapData } from "~/types";
+import { MessageMetadata, RecapData, RecapType } from "~/types";
 import { db } from "~/server/db";
 
 export interface RecapOptions {
@@ -77,6 +77,7 @@ export async function generateChannelRecap(
     endTime,
     includeTopics,
     includeParticipants,
+    type: 'channel',
     promptTemplate: `Provide a clear and structured summary of this channel's conversation.
 Format the summary in the following way:
 
@@ -113,26 +114,50 @@ export async function generateThreadRecap(
   const {
     startTime = new Date(Date.now() - 24 * 60 * 60 * 1000),
     endTime = new Date(),
-    maxMessages = 100,
     includeTopics = false,
     includeParticipants = false
   } = options;
 
-  // Get messages from the thread
-  const messages = await searchSimilarDocuments("", {
-    filter: {
-      threadId,
-      type: "thread_reply" as MessageType
+  // Get all messages from the thread
+  const allMessages = await db.message.findMany({
+    where: {
+      OR: [
+        { id: parseInt(threadId) },
+        { parentMessageId: parseInt(threadId) }
+      ]
     },
-    k: maxMessages,
-    searchType: "similarity"
+    include: {
+      user: {
+        select: {
+          id: true,
+          username: true
+        }
+      }
+    },
+    orderBy: {
+      createdAt: 'asc'
+    }
   });
 
-  return await generateRecap(messages as Document<MessageMetadata>[], {
+  // Transform messages to Document format
+  const messages = allMessages.map(msg => new Document({
+    pageContent: msg.content,
+    metadata: {
+      messageId: msg.id.toString(),
+      channelId: msg.channelId.toString(),
+      userId: msg.user.id,
+      timestamp: msg.createdAt.toISOString(),
+      type: msg.parentMessageId ? 'thread_reply' : 'message' as const,
+      threadId: msg.parentMessageId ? msg.parentMessageId.toString() : null
+    } satisfies MessageMetadata
+  }));
+
+  return await generateRecap(messages, {
     startTime,
     endTime,
     includeTopics,
     includeParticipants,
+    type: 'thread',
     promptTemplate: `Provide a concise summary of this conversation thread.
 Write a brief summary that captures the main points and context.
 Focus on:
@@ -181,6 +206,7 @@ export async function generateDirectMessageRecap(
     endTime,
     includeTopics,
     includeParticipants,
+    type: 'direct',
     promptTemplate: `Provide a concise summary of this direct message conversation.
 Write a brief summary that captures the main points and context.
 Focus on:
@@ -201,6 +227,7 @@ Summary:`
 
 interface GenerateRecapOptions extends Required<Pick<RecapOptions, 'startTime' | 'endTime' | 'includeTopics' | 'includeParticipants'>> {
   promptTemplate: string;
+  type: RecapType;
 }
 
 /**
@@ -210,32 +237,36 @@ async function generateRecap(
   messages: Document<MessageMetadata>[],
   options: GenerateRecapOptions
 ): Promise<RecapResult> {
-  const { startTime, endTime, includeTopics, includeParticipants, promptTemplate } = options;
+  const { startTime, endTime, includeTopics, includeParticipants, promptTemplate, type } = options;
 
   console.log("[RECAP] Generating recap with messages:", messages.length);
 
-  // Filter by timestamp
-  const filteredMessages = messages.filter(msg => {
-    const timestamp = msg.metadata?.timestamp;
-    console.log("[RECAP] Message timestamp:", timestamp);
-    if (timestamp) {
-      const date = new Date(timestamp);
-      if (!isNaN(date.getTime())) {
-        const isInRange = date >= startTime && date <= endTime;
-        console.log("[RECAP] Is in range:", isInRange, { date, startTime, endTime });
-        return isInRange;
-      }
-    }
-    console.log("[RECAP] Message skipped - invalid timestamp");
-    return false;
-  });
+  // Filter by timestamp (skip for threads)
+  const filteredMessages = type === 'thread' 
+    ? messages 
+    : messages.filter(msg => {
+        const timestamp = msg.metadata?.timestamp;
+        console.log("[RECAP] Message timestamp:", timestamp);
+        if (timestamp) {
+          const date = new Date(timestamp);
+          if (!isNaN(date.getTime())) {
+            const isInRange = date >= startTime && date <= endTime;
+            console.log("[RECAP] Is in range:", isInRange, { date, startTime, endTime });
+            return isInRange;
+          }
+        }
+        console.log("[RECAP] Message skipped - invalid timestamp");
+        return false;
+      });
 
-  console.log("[RECAP] Messages after timestamp filtering:", filteredMessages.length);
+  console.log("[RECAP] Messages after filtering:", filteredMessages.length);
 
   if (filteredMessages.length === 0) {
-    console.log("[RECAP] No messages found in range");
+    console.log("[RECAP] No messages found");
     return {
-      summary: "No messages found in the specified time range.",
+      summary: type === 'thread' 
+        ? "No messages found in this thread."
+        : "No messages found in the specified time range.",
       keyPoints: [],
       messageCount: 0,
       timeRange: {

@@ -4,7 +4,7 @@ import { RecapType, RecapRequest, RecapResponse, RecapData, RecapTimeframe } fro
 interface UseRecapProps {
   type: RecapType;
   id: string;
-  timeframe: RecapTimeframe['value'];
+  timeframe?: RecapTimeframe['value'];
   options?: {
     maxMessages?: number;
     includeThreads?: boolean;
@@ -20,7 +20,16 @@ interface UseRecapReturn {
   generateRecap: () => Promise<void>;
 }
 
-const getTimeRangeForTimeframe = (timeframe: UseRecapProps['timeframe']) => {
+const getTimeRangeForTimeframe = (type: RecapType, timeframe?: UseRecapProps['timeframe']) => {
+  // For threads, return undefined to skip time filtering
+  if (type === 'thread') {
+    return {};
+  }
+
+  if (!timeframe) {
+    timeframe = 'day'; // Default for non-thread types
+  }
+
   const end = new Date();
   const start = new Date();
 
@@ -52,7 +61,7 @@ export function useRecap({ type, id, timeframe, options = {} }: UseRecapProps): 
     setError(null);
 
     try {
-      const timeRange = getTimeRangeForTimeframe(timeframe);
+      const timeRange = getTimeRangeForTimeframe(type, timeframe);
       
       const request: RecapRequest = {
         type,

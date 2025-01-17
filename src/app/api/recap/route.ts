@@ -6,19 +6,28 @@ import { RecapRequest, RecapResponse } from "~/types";
 
 export async function POST(req: NextRequest) {
   try {
-    // Check authentication
+    // Auth check
     const { userId } = await auth();
     if (!userId) {
       const error: ApiError = {
         code: ErrorCode.AUTHENTICATION_ERROR,
-        message: "Authentication required",
+        message: "Not authenticated",
       };
       return NextResponse.json({ error }, { status: HttpStatus.UNAUTHORIZED });
     }
 
-    // Parse and validate request body
-    const body: RecapRequest = await req.json();
-    const { type, id, startTime, endTime, maxMessages, includeThreads, includeTopics, includeParticipants } = body;
+    // Parse request
+    const body = await req.json();
+    const {
+      type,
+      id,
+      startTime,
+      endTime,
+      maxMessages,
+      includeThreads,
+      includeTopics,
+      includeParticipants
+    } = body as RecapRequest;
 
     // Validate required fields
     if (!type || !id) {
@@ -30,34 +39,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
     }
 
-    // Validate dates if provided
-    if (startTime && isNaN(new Date(startTime).getTime())) {
-      const error: ApiError = {
-        code: ErrorCode.VALIDATION_ERROR,
-        message: "Invalid startTime parameter",
-        details: { startTime }
-      };
-      return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
+    // Validate dates if provided (only for non-thread recaps)
+    if (type !== 'thread') {
+      if (startTime && isNaN(new Date(startTime).getTime())) {
+        const error: ApiError = {
+          code: ErrorCode.VALIDATION_ERROR,
+          message: "Invalid startTime parameter",
+          details: { startTime }
+        };
+        return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
+      }
+
+      if (endTime && isNaN(new Date(endTime).getTime())) {
+        const error: ApiError = {
+          code: ErrorCode.VALIDATION_ERROR,
+          message: "Invalid endTime parameter",
+          details: { endTime }
+        };
+        return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
+      }
     }
 
-    if (endTime && isNaN(new Date(endTime).getTime())) {
-      const error: ApiError = {
-        code: ErrorCode.VALIDATION_ERROR,
-        message: "Invalid endTime parameter",
-        details: { endTime }
-      };
-      return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
-    }
-
-    // Parse options
-    const options = {
-      ...(startTime && { startTime: new Date(startTime) }),
-      ...(endTime && { endTime: new Date(endTime) }),
-      ...(maxMessages && { maxMessages: Number(maxMessages) }),
-      ...(includeThreads !== undefined && { includeThreads }),
-      ...(includeTopics !== undefined && { includeTopics }),
-      ...(includeParticipants !== undefined && { includeParticipants })
-    };
+    // Parse options - for threads, we ignore time-related options
+    const options = type === 'thread' 
+      ? {
+          ...(includeTopics !== undefined && { includeTopics }),
+          ...(includeParticipants !== undefined && { includeParticipants })
+        }
+      : {
+          ...(startTime && { startTime: new Date(startTime) }),
+          ...(endTime && { endTime: new Date(endTime) }),
+          ...(maxMessages && { maxMessages: Number(maxMessages) }),
+          ...(includeThreads !== undefined && { includeThreads }),
+          ...(includeTopics !== undefined && { includeTopics }),
+          ...(includeParticipants !== undefined && { includeParticipants })
+        };
 
     // Generate recap based on type
     let recap;
@@ -80,14 +96,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error }, { status: HttpStatus.BAD_REQUEST });
     }
 
-    // Format response
+    // Format response - use current time range for threads
     const response: RecapResponse = {
       data: {
         ...recap,
-        timeRange: {
-          start: recap.timeRange.start.toISOString(),
-          end: recap.timeRange.end.toISOString()
-        },
+        timeRange: type === 'thread'
+          ? {
+              start: new Date(0).toISOString(), // Beginning of time
+              end: new Date().toISOString() // Current time
+            }
+          : {
+              start: recap.timeRange.start.toISOString(),
+              end: recap.timeRange.end.toISOString()
+            },
         generatedAt: new Date().toISOString()
       },
       meta: {
@@ -97,12 +118,12 @@ export async function POST(req: NextRequest) {
     };
 
     return NextResponse.json(response);
-  } catch (error) {
-    console.error("Error generating recap:", error);
-    const apiError: ApiError = {
+  } catch (err) {
+    console.error("[RECAP] Error generating recap:", err);
+    const error: ApiError = {
       code: ErrorCode.INTERNAL_ERROR,
       message: "Failed to generate recap"
     };
-    return NextResponse.json({ error: apiError }, { status: HttpStatus.INTERNAL_SERVER_ERROR });
+    return NextResponse.json({ error }, { status: HttpStatus.INTERNAL_SERVER_ERROR });
   }
 } 
