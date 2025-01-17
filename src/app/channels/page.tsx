@@ -74,8 +74,9 @@ export default async function ChannelsPage() {
                 <strong className="text-foreground">AI Features:</strong>
                 <ul className="list-disc pl-6 mt-1">
                   <li>Channel Recap: Located on the top right. Get an AI-generated summary of recent conversations</li>
-                  <li>Thread Recap</li>
-                  <li>DM Recap</li>
+                  <li>Thread Recap: Located inside a thread. Get an AI-generated summary of a thread</li>
+                  <li>DM Recap: Located on the top right. Get an AI-generated summary of recent direct messages</li>
+                  <li>Intelligent Search: Use natural language to search for messages and get AI answers</li>
                 </ul>
               </div>
             </div>
