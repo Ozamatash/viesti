@@ -24,6 +24,7 @@
     "@clerk/nextjs": "^6.9.6",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
+    "@langchain/community": "^0.3.24",
     "@langchain/core": "^0.3.30",
     "@langchain/openai": "^0.3.17",
     "@langchain/pinecone": "^0.1.3",

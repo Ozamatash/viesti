@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -35,6 +34,7 @@ model Channel {
     createdAt   DateTime            @default(now())
     members     ChannelMembership[]
     messages    Message[]
+    documents   Document[]
 }
 
 model ChannelMembership {
@@ -60,6 +60,7 @@ model Message {
     replies         Message[]  @relation("ThreadReplies")
     reactions       Reaction[]
     files           File[]
+    documents       Document[] @relation("ThreadDocuments")
 }
 
 model DirectMessage {
@@ -95,4 +96,24 @@ model File {
     messageId       Int?
     directMessage   DirectMessage? @relation(fields: [directMessageId], references: [id])
     directMessageId Int?
+}
+
+model Document {
+  id              Int       @id @default(autoincrement())
+  fileName        String
+  filePath        String
+  fileType        String
+  uploadedBy      String
+  uploadedAt      DateTime  @default(now())
+  channel         Channel?  @relation(fields: [channelId], references: [id])
+  channelId       Int?
+  conversationId  String?
+  thread          Message?  @relation("ThreadDocuments", fields: [threadId], references: [id])
+  threadId        Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([channelId])
+  @@index([conversationId])
+  @@index([threadId])
 }
