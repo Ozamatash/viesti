@@ -50,7 +50,7 @@ export async function searchMessages(
   const {
     channelId,
     conversationId,
-    maxResults = 20,
+    maxResults = 10,
     searchMode = "semantic",
     includeThreads = false
   } = options;
@@ -73,7 +73,7 @@ export async function searchMessages(
   // Get messages from vector store
   const messages = await searchSimilarDocuments(query, {
     filter,
-    k: maxResults,
+    k: Math.ceil(maxResults / (includeThreads ? 2 : 1)),
     searchType: "similarity"
   });
 
@@ -88,11 +88,11 @@ export async function searchMessages(
     };
     const threadMessages = await searchSimilarDocuments(query, {
       filter: threadFilter,
-      k: maxResults,
+      k: Math.ceil(maxResults / 2),
       searchType: "similarity"
     });
     console.log("[SEARCH] Found thread messages:", threadMessages.length);
-    allMessages = [...messages, ...threadMessages];
+    allMessages = [...messages, ...threadMessages].slice(0, maxResults);
   }
 
   // If using semantic search, rerank results using LLM
@@ -107,6 +107,7 @@ export async function searchMessages(
     // Create prompt for relevance scoring
     const scoringPrompt = `Rate how relevant each message is to the following query on a scale of 0-100.
 Focus on semantic meaning and context, not just keyword matches.
+Consider the message timestamp when evaluating temporal references (e.g., "today", "tomorrow", "next week").
 Provide just the numeric score, nothing else.
 
 Query: ${query}
@@ -118,7 +119,8 @@ Relevance Score (0-100):`;
     // Score each message for relevance
     const scoredMessages = await Promise.all(
       allMessages.map(async (msg) => {
-        const prompt = scoringPrompt.replace("{message}", msg.pageContent);
+        const messageWithTime = `Message (sent ${new Date(msg.metadata?.timestamp || "").toLocaleString()}): ${msg.pageContent}`;
+        const prompt = scoringPrompt.replace("{message}", messageWithTime);
         const response = await llm.invoke(prompt);
         const score = parseInt(response.content.toString().trim(), 10);
         return {
@@ -128,10 +130,14 @@ Relevance Score (0-100):`;
       })
     );
 
-    // Sort by relevance score
+    // Sort by relevance score and limit to maxResults
     allMessages = scoredMessages
       .sort((a, b) => b.score - a.score)
+      .slice(0, maxResults)
       .map(({ message }) => message);
+  } else {
+    // For non-semantic search, just limit the results
+    allMessages = allMessages.slice(0, maxResults);
   }
 
   // Get message IDs from vector store results
@@ -224,16 +230,22 @@ Relevance Score (0-100):`;
 
     // Format messages for context
     const messagesContext = results
-      .map(msg => `${msg.user.username}: ${msg.content}`)
+      .map(msg => {
+        const timestamp = new Date(msg.createdAt);
+        const timeAgo = getRelativeTimeString(timestamp);
+        return `${msg.user.username} (${timeAgo}): ${msg.content}`;
+      })
       .join("\n");
 
     // Create prompt for answer generation
     const answerPrompt = `Based on these chat messages, answer the following question naturally and conversationally.
 Be concise but informative. If you're not sure, just say so.
+IMPORTANT: When referring to times or dates mentioned in messages, always convert them to relative time from now (e.g., "The meeting was scheduled 3 days ago at 2pm" instead of just "at 2pm").
 
 Chat Messages:
 ${messagesContext}
 
+Current time: ${new Date().toLocaleString()}
 Question: ${query}
 
 Answer:`;
@@ -251,4 +263,38 @@ Answer:`;
     answer,
     results
   };
+}
+
+function getRelativeTimeString(date: Date): string {
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  const minute = 60;
+  const hour = minute * 60;
+  const day = hour * 24;
+  const week = day * 7;
+  const month = day * 30;
+  const year = day * 365;
+
+  if (diffInSeconds < minute) {
+    return "just now";
+  } else if (diffInSeconds < hour) {
+    const minutes = Math.floor(diffInSeconds / minute);
+    return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+  } else if (diffInSeconds < day) {
+    const hours = Math.floor(diffInSeconds / hour);
+    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  } else if (diffInSeconds < week) {
+    const days = Math.floor(diffInSeconds / day);
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  } else if (diffInSeconds < month) {
+    const weeks = Math.floor(diffInSeconds / week);
+    return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+  } else if (diffInSeconds < year) {
+    const months = Math.floor(diffInSeconds / month);
+    return `${months} month${months > 1 ? 's' : ''} ago`;
+  } else {
+    const years = Math.floor(diffInSeconds / year);
+    return `${years} year${years > 1 ? 's' : ''} ago`;
+  }
 } 

@@ -87,16 +87,18 @@ export async function searchSimilarDocuments(
   }
 ) {
   const { 
-    k = 4, 
+    k = 10,
     filter, 
     searchType = "mmr",
-    fetchK = 20,
+    fetchK = Math.min(20, k * 2),
     lambda = 0.5 
   } = options ?? {};
 
+  const validatedK = Math.min(Math.max(1, k), 50);
+
   try {
     const retriever = await getVectorStoreRetriever({
-      k,
+      k: validatedK,
       filter,
       searchType,
       ...(searchType === "mmr" ? { fetchK, lambda } : {})
