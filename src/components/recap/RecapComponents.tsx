@@ -69,62 +69,79 @@ export function RecapContent({ recap }: RecapContentProps) {
     return <div>No recap data available</div>;
   }
 
+  // Split summary into overview and bullet points
+  const [overview, ...bulletPoints] = recap.summary.split('\n\n').filter(Boolean);
+
   return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="font-semibold mb-2">Summary</h3>
-        <p className="text-sm text-muted-foreground">{recap.summary}</p>
+    <div className="space-y-6 p-4">
+      {/* Overview Section */}
+      <div className="prose dark:prose-invert max-w-none">
+        <h3 className="text-lg font-semibold mb-2">Overview</h3>
+        <p className="text-sm leading-relaxed">{overview}</p>
       </div>
 
-      {recap.keyPoints && recap.keyPoints.length > 0 && (
-        <div>
-          <h3 className="font-semibold mb-2">Key Points</h3>
-          <ul className="list-disc list-inside text-sm text-muted-foreground">
-            {recap.keyPoints.map((point, i) => (
-              <li key={i}>{point}</li>
-            ))}
-          </ul>
+      {/* Updates Section */}
+      {bulletPoints.length > 0 && (
+        <div className="prose dark:prose-invert max-w-none">
+          <h3 className="text-lg font-semibold mb-2">Key Updates</h3>
+          <div className="space-y-2">
+            {bulletPoints.join('\n')
+              .split('\n')
+              .filter(point => point.trim().startsWith('•'))
+              .map((point, i) => (
+                <div 
+                  key={i}
+                  className="flex items-start gap-2 text-sm leading-relaxed"
+                  dangerouslySetInnerHTML={{
+                    __html: point
+                      .replace('•', '')
+                      .trim()
+                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                  }}
+                />
+              ))}
+          </div>
         </div>
       )}
 
-      {recap.actionItems && recap.actionItems.length > 0 && (
-        <div>
-          <h3 className="font-semibold mb-2">Action Items</h3>
-          <ul className="list-disc list-inside text-sm text-muted-foreground">
-            {recap.actionItems.map((item, i) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
+      {/* Additional Sections */}
       {recap.topics && recap.topics.length > 0 && (
-        <div>
-          <h3 className="font-semibold mb-2">Topics Discussed</h3>
-          <ul className="list-disc list-inside text-sm text-muted-foreground">
+        <div className="border-t pt-4">
+          <h3 className="text-lg font-semibold mb-2">Topics Discussed</h3>
+          <div className="flex flex-wrap gap-2">
             {recap.topics.map((topic, i) => (
-              <li key={i}>{topic}</li>
+              <span 
+                key={i}
+                className="px-2 py-1 bg-secondary rounded-md text-sm"
+              >
+                {topic}
+              </span>
             ))}
-          </ul>
+          </div>
         </div>
       )}
 
       {recap.participants && (
-        <div>
-          <h3 className="font-semibold mb-2">Participants</h3>
-          <div className="text-sm text-muted-foreground">
-            <p>Total participants: {recap.participants.total}</p>
-            <p>Active participants: {recap.participants.active}</p>
+        <div className="border-t pt-4">
+          <h3 className="text-lg font-semibold mb-2">Participation</h3>
+          <div className="text-sm space-y-2">
+            <div className="flex gap-4 text-muted-foreground">
+              <span>Total: {recap.participants.total}</span>
+              <span>Active: {recap.participants.active}</span>
+            </div>
             {recap.participants.topContributors.length > 0 && (
               <div className="mt-2">
-                <p className="font-medium">Top contributors:</p>
-                <ul className="list-disc list-inside">
+                <p className="font-medium mb-1">Top Contributors:</p>
+                <div className="grid grid-cols-2 gap-2">
                   {recap.participants.topContributors.map((user, i) => (
-                    <li key={i}>
-                      {user.username} ({user.messageCount} messages)
-                    </li>
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="font-medium">{user.username}</span>
+                      <span className="text-muted-foreground">
+                        ({user.messageCount} messages)
+                      </span>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
           </div>

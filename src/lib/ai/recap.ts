@@ -3,6 +3,7 @@ import { Document } from "langchain/document";
 import { searchSimilarDocuments } from "./vector-store";
 import { getAIEnvVars, defaultAIConfig } from "~/config/ai";
 import { MessageMetadata, RecapData } from "~/types";
+import { db } from "~/server/db";
 
 export interface RecapOptions {
   startTime?: Date;
@@ -76,15 +77,24 @@ export async function generateChannelRecap(
     endTime,
     includeTopics,
     includeParticipants,
-    promptTemplate: `Provide a concise summary of this channel's conversation.
-Write a brief summary that captures the main points and context.
-Focus on:
-- Key information and decisions
-- Important announcements or updates
-- Action items and next steps
-${includeTopics ? 'Include relevant topics discussed.' : ''}
-${includeParticipants ? 'Note participant contributions where significant.' : ''}
-Maintain a neutral, factual tone.
+    promptTemplate: `Provide a clear and structured summary of this channel's conversation.
+Format the summary in the following way:
+
+1. Start with a brief overview paragraph
+
+2. Then list the key updates and developments as bullet points:
+• Use bullet points (•) for each distinct update
+• Keep each point concise (1 line if possible)
+• Start each point with a bold category (e.g. **Updates:**, **Decisions:**, **Action Items:**) when appropriate
+• Include timestamps when mentioned
+
+Example format:
+The team discussed project updates and coordinated upcoming tasks. Several important decisions were made regarding the release schedule.
+
+• **Updates:** Performance improvements deployed to production
+• **Meeting:** Team sync scheduled for tomorrow at 2 PM
+• **Action Item:** Update dependencies before running new version
+• **Decision:** Next release planned for Friday
 
 Here are the messages:
 {messages}
@@ -301,12 +311,31 @@ Topics:`;
       }
     });
 
+    // Get all unique user IDs
+    const userIds = Array.from(userCounts.keys());
+
+    // Fetch user data from database
+    const users = await db.user.findMany({
+      where: {
+        id: {
+          in: userIds
+        }
+      },
+      select: {
+        id: true,
+        username: true
+      }
+    });
+
+    // Create a map of user IDs to usernames
+    const userMap = new Map(users.map(user => [user.id, user.username]));
+
     const topContributors = Array.from(userCounts.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([userId, count]) => ({
         userId,
-        username: userId, // TODO: Fetch usernames from database
+        username: userMap.get(userId) || 'Unknown User',
         messageCount: count
       }));
 
